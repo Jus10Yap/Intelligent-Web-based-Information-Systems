@@ -1,0 +1,17 @@
+html(lang="en")
+    head   
+        meta(charset="UTF-8")
+        meta(http-equiv="X-UA-Compatible", content="IE=edge")
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        link(rel="stylesheet" href="/css/styles.css")
+        title Products
+    body
+        include ./header
+        div#list
+            h1 #{title}
+            if(products.length)
+                each product in products
+                    a(class='product' href="/products/:" + product._id) #{product.name}
+                    br
+            else
+                a(class='product') No existing users found

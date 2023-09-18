@@ -1,0 +1,23 @@
+html(lang="en")
+    head   
+        meta(charset="UTF-8")
+        meta(http-equiv="X-UA-Compatible", content="IE=edge")
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        link(rel="stylesheet" href="/css/styles.css")
+        title #{product.name}
+    body(onload=`init(${JSON.stringify(product)})`)
+        include ./header
+        div#main
+            h1 #{product.name}
+            if  (perms)
+                p Public
+                    input(onchange="getData(value)", type ='radio',value="false", name="privacy", checked=user["privacy"]==false)
+                p Private
+                    input(onchange="getData(value)", type ='radio',value="true", name="privacy", checked=user["privacy"]==true)
+            if  (user.orders.length)
+                h1 Order History
+                each resto in user.orders
+                    a(class='aid' href=`/orders/:${resto._id}`) Order##{resto._id}
+                    br
+        script(src='/user.js')
+        

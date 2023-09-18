@@ -1,0 +1,27 @@
+html(lang="en")
+    head
+        link(rel="stylesheet" href="/css/styles.css")
+        meta(charset="UTF-8")
+        meta(http-equiv="X-UA-Compatible", content="IE=edge")
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        title HomePage
+    body(onload='init()')
+        include ./header
+        #register
+            h1 Add Product
+            form#productForm
+                p Name:
+                    input#name(type="text" name="name")
+                p Price:
+                    input#price(type="number" name="price" step="0.01")
+                p Dimensions:
+                    label(for="x") X:
+                        input#x(type="number" name="dimensions[x]" placeholder="X dimension")
+                    label(for="y") Y:
+                        input#y(type="number" name="dimensions[y]" placeholder="Y dimension")
+                    label(for="z") Z:
+                        input#z(type="number" name="dimensions[z]" placeholder="Z dimension")
+                p Stock:
+                    input#stock(type="number" name="stock")
+                button#submit(type="button") Add Product
+        script(src='/registration.js')
