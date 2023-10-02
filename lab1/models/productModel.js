@@ -1,41 +1,41 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const productSchema = new Schema({
-    name: {
-        type: String,
-        required: true,
-        trim: true // Removes leading/trailing white spaces
-    },
-    price: {
-        type: Number,
-        required: true,
-        min: 0 // Ensures price is non-negative
-    },
-    dimensions: {
-        x: {
-            type: Number,
-            required: true,
-            min: 0 // Ensures positive values
-        },
-        y: {
-            type: Number,
-            required: true,
-            min: 0 // Ensures positive values
-        },
-        z: {
-            type: Number,
-            required: true,
-            min: 0 // Ensures positive values
-        }
-    },
-    stock: {
-        type: Number,
-        required: true,
-        min: 0 // Ensures stock is non-negative
-    }
+let productSchema = Schema({
+	name: {
+		type: String, 
+		required: true,
+		minlength: 3,
+		maxlength: 50
+	},
+	price: {
+		type: Number,
+		required: [true, "You need a price…"],
+		min: [0, "You can't pay people to buy it…"]
+	},
+	stock: {
+		type: Number, 
+		required: true,
+		min: [0, "You can't have negative stock."],
+		max: [100, "We don't have room for that."],
+	},
+	dimensions: {
+		type: {
+			x: {type: Number},
+			y: {type: Number},
+			z: {type: Number}
+		},
+		default: {
+			x: 1,
+			y: 1,
+			z: 1
+		}
+	},
+	reviews: [Number],
+	
 });
 
-const Product = mongoose.model('Product', productSchema);
 
-module.exports = Product;
+
+
+module.exports = mongoose.model("Product", productSchema);

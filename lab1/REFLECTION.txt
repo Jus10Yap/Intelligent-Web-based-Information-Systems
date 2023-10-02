@@ -1,0 +1,29 @@
+Lab Reflection Answers:
+
+1. Discuss the collections and documents that you store in the database (e.g., what data are you storing about products, orders, etc.).
+    Products Collection
+    - name
+    - price
+    - dimensions
+    - stock
+    - reviews
+
+    Orders Collection
+    - customer name
+    - items : array of objects with two attributes
+        - product
+        - quantity
+
+2. What is the structure of your new order data? How is it sent to the server (e.g., through an HTML form, JSON request)?
+    The structure of the order data consists of a customerName and an array of items. 
+    Each item in the array contains a product (which is the product ID) and the quantity for that product.
+    The data is sent to the server through an HTML form. When the form is submitted, the data is converted into JSON and sent to the server using a POST request.
+
+3. How do you load the data for a specific order so it can be displayed to the user?
+    uses the order's unique ID 
+
+    GET request /orders/:id
+
+    use the Mongoose's .populate() function to get related product documents based on the product IDs present in the order's items array
+
+    pass retrieved data to pug template/file related product documents based on the product IDs present in the order's items array

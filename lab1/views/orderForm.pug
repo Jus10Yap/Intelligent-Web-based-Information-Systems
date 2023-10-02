@@ -1,0 +1,31 @@
+doctype html
+html
+  head
+    title Order Form
+    link(rel="stylesheet", href="/css/styles.css")
+    script(src="/js/orderForm.js" defer)
+  body
+    include ./header
+
+    h2 Place an Order
+
+    form(action="/orders" method="POST" id="orderForm")
+      div.form-group
+        label(for="customerName") Customer Name
+        input(type="text" name="customerName" required)
+
+      div.products#productFields
+        div.form-group.product-group
+          label Product
+          select(name="items[0][product]")
+            each product in products
+              option(value=product._id) #{product.name}
+          label Quantity
+          input(type="number" name="items[0][quantity]" min="1" required)
+
+      div.form-controls
+        button(type="button" onclick="addProductField()") Add Product
+        button(type="button" onclick="removeProductField()") Remove Product
+
+      div.form-group
+        button(type="submit") Submit Order

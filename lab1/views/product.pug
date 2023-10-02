@@ -8,16 +8,24 @@ html(lang="en")
     body(onload=`init(${JSON.stringify(product)})`)
         include ./header
         div#main
-            h1 #{product.name}
-            if  (perms)
-                p Public
-                    input(onchange="getData(value)", type ='radio',value="false", name="privacy", checked=user["privacy"]==false)
-                p Private
-                    input(onchange="getData(value)", type ='radio',value="true", name="privacy", checked=user["privacy"]==true)
-            if  (user.orders.length)
-                h1 Order History
-                each resto in user.orders
-                    a(class='aid' href=`/orders/:${resto._id}`) Order##{resto._id}
-                    br
-        script(src='/user.js')
+            h1 #{product.name}   
+            p Price: $#{product.price}
+            p Dimensions: 
+                | X: #{product.dimensions.x}
+                | Y: #{product.dimensions.y}
+                | Z: #{product.dimensions.z}
+            p Stock: #{product.stock}
+            p ID: #{product.id}
+            h2 Add Review
+            form#addReviewForm(action=`/products/:${product.id}/reviews` method="POST")
+                p Rate: 
+                    select(name="rating")
+                        for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                            option(value=i) #{i}
+                button(type="submit") Submit Review
+            if product.reviews && product.reviews.length
+                h2 Reviews
+                ul#reviews
+                    each review in product.reviews
+                        li #{review}
         

@@ -19,11 +19,16 @@ input {
     border-bottom: 2px solid #001233;
     outline: 0;
     margin-left: 15px;
+    margin-right: 15px;
     font-size: 1.3rem;
     color: #001233;
     padding: 7px 0;
     background: transparent;
     transition: border-color 0.2s;
+}
+
+input::placeholder {
+    font-size: 15px;  /* Adjust the value to your preference */
 }
 
 #register {
@@ -40,6 +45,40 @@ input {
     padding-left: 10px;
     line-height: 1.6;
 }
+
+.product-header {
+    display: flex;
+    align-items: center;
+}
+
+.product-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* To align items to the left; remove if not necessary */
+    margin-bottom: 20px; /* Spacing between each product's reviews set */
+}
+
+.product-item > p:first-child {
+    font-weight: bold; 
+    font-size: 20px; 
+    margin-bottom: 10px; 
+}
+
+.product-item > p:not(:first-child) {
+    margin: 5px 0; 
+    font-size: 15px;
+}
+span.stock-header, span.product-stock {
+    width: 50px; 
+    text-align: right;
+    margin-right: 20px;
+}
+
+.product-item {
+    margin-top: 5px;
+    
+}
+
 
 #main {
     margin: 10px;
@@ -90,6 +129,7 @@ button {
     color: #001233;
     text-align: center;
     transition: all 0.2s;
+    margin-left: 15px;
 }
 
 button:hover {

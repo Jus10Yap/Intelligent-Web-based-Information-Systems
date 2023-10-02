@@ -1,0 +1,24 @@
+html(lang="en")
+    head   
+        meta(charset="UTF-8")
+        meta(http-equiv="X-UA-Compatible", content="IE=edge")
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        link(rel="stylesheet" href="/css/styles.css")
+        title Reviews
+    body
+        include ./header
+
+    div#list
+        h1 All Reviews
+        div.product-header
+        if(products.length)
+            h2 Product Name - Review
+            each product in products
+                div.product-item
+                    if product.reviews && product.reviews.length
+                        p #{product.name}
+                        each review in product.reviews
+                            p Review: #{review}
+                        br
+        else
+            a(class='product') No existing reviews found

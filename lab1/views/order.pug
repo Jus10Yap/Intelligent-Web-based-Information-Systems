@@ -1,0 +1,27 @@
+html(lang="en")
+    head   
+        meta(charset="UTF-8")
+        meta(http-equiv="X-UA-Compatible", content="IE=edge")
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        link(rel="stylesheet" href="/css/styles.css")
+        title Order by #{order.customerName}
+    body
+        include ./header
+        div#main
+            h1 Order by #{order.customerName}
+            ul
+                - let totalAmount = 0
+                each item in order.items
+                    li 
+                        h2 #{item.product.name}
+                        p Quantity: #{item.quantity}
+                        p Price per unit: $#{item.product.price}
+                        p Subtotal: $#{item.product.price * item.quantity}
+                        - totalAmount += item.product.price * item.quantity
+                        p Dimensions: 
+                            | X: #{item.product.dimensions.x}
+                            | Y: #{item.product.dimensions.y}
+                            | Z: #{item.product.dimensions.z}
+                        p Stock: #{item.product.stock}
+                        p ID: #{item.product.id}
+            p Total Amount: $#{totalAmount}

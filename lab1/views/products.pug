@@ -7,11 +7,24 @@ html(lang="en")
         title Products
     body
         include ./header
-        div#list
-            h1 #{title}
-            if(products.length)
-                each product in products
-                    a(class='product' href="/products/:" + product._id) #{product.name}
-                    br
-            else
-                a(class='product') No existing users found
+
+        div#search-bar
+            form(action="/products", method="get")
+                input(type="text", name="name", placeholder="Search for products by name...")
+                label
+                    input(type="checkbox", name="instock", value="1")
+                    | In Stock
+                button(type="submit") Search
+    div#list
+        h1 #{title}
+        div.product-header
+            span.stock-header Stock
+            span Name
+        if(products.length)
+            each product in products
+                div.product-item
+                    a(class='product' href="/products/:" + product.id)
+                        span(class="product-stock") #{product.stock}
+                        span #{product.name}
+        else
+            a(class='product') No existing products found

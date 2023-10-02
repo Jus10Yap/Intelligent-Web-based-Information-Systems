@@ -3,20 +3,19 @@ Name: Justine Yap
 Std Number: 101180098
 The code below is mostly copied from my COMP2406 assignment 4 code from Fall 2021 by Dave Mckenney
 */
-const http = require('http');
+
+//modules
+const http = require("http");
 const pug = require("pug");
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
-const mongoose = require("mongoose");
 const app = express();
-const Product = require("./models/productModel");
-
-
-const { ObjectId } = require("bson"); //this is to create an object id for each new product added
 const PORT = process.env.PORT || 3000;
+const mongoose = require("mongoose");
 
-const products = require("./products.json");
+const Product = require("./models/productModel");
+const Order = require("./models/orderModel");
 
 // Setting middleware
 app.set("views");
@@ -28,105 +27,444 @@ app.use(express.static(path.join("public", "css")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-
-//GET Homepage
-app.get(["/", "/home"], (req, res) => res.render("home"));
-
 //Log requests received
-app.use(function(req, res, next) {
-    console.log(`${req.method} for ${req.url}`);
-    if (Object.keys(req.body).length > 0) {
-        console.log("Body:");
-        console.log(req.body);
+app.use(function (req, res, next) {
+  console.log(`${req.method} for ${req.url}`);
+  if (Object.keys(req.body).length > 0) {
+    console.log("Body:");
+    console.log(req.body);
+  }
+  next();
+});
+
+//Get functions
+
+const getReviews = async (req, res) => {
+  try {
+    let result = [];
+
+    // If there are no query parameters provided in the request.
+    if (!Object.keys(req.query).length) {
+      console.log("Returning all products with reviews");
+
+      // Fetch all products from the database that have at least one review.
+      // The condition checks if the first review (index 0) exists.
+      result = await Product.find({ "reviews.0": { $exists: true } });
     }
-    next();
-});
 
-// GET add product page
-app.get("/register", (req, res) => {
-    res.render("register");
-});
+    console.log("Result: \n", result);
 
+    res.format({
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json(result);
+      },
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+        const renderData = { products: result };
+        res.render("reviews", renderData);
+      },
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Internal Server Error");
+  }
+};
 
-// Search for products
-app.get('/products', async (req, res) => {
-    try {
-        let result;
-        if (!req.query.name) {
-            // Send all products that have stock greater than 0
-            result = await Product.find({ stock: { $gt: 0 } });
-        } else {
-            // Get query value
-            let name = req.query.name;
-            // Send products that match the query value (case-insensitive) and have stock greater than 0
-            result = await Product.find({
-                name: { $regex: new RegExp(name, "i") },
-                stock: { $gt: 0 }
-            });
-        }
+const getProducts = async (req, res) => {
+  try {
+    let result = [];
 
-        res.format({
-            "application/json": () => {
-                res.set("Content-Type", "application/json");
-                res.json(result);
-            },
-            "text/html": () => {
-                res.set("Content-Type", "text/html");
-                const renderData = !req.query.name
-                    ? { title: "All Users", users: result }
-                    : { title: `Existing products with: ${req.query.name}`, products: result };
-                res.render("products", renderData);
-            },
-            default: () => {
-                res.status(406).send("Not acceptable");
-            },
+    // Check if the 'name' query parameter is provided.
+    // Convert it to lowercase and remove any leading/trailing whitespace.
+    const nameQuery = req.query.name
+      ? req.query.name.toLowerCase().trim()
+      : null;
+
+    const filters = {};
+
+    // If there's a 'name' query, add it to the filters with a case-insensitive regex.
+    if (nameQuery) {
+      filters.name = { $regex: new RegExp(nameQuery, "i") };
+    }
+
+    // If the 'instock' query parameter is set to "1", filter products that have stock greater than 0.
+    if (req.query.instock == "1") {
+      filters.stock = { $gt: 0 };
+    }
+
+    // Fetch products based on the filters.
+    result = await Product.find(filters);
+
+    // Log the retrieved products.
+    console.log("Result: \n", result);
+
+    res.format({
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json(result);
+      },
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+        const renderData = !nameQuery
+          ? { title: "All Products", products: result }
+          : { title: `Products matching: ${nameQuery}`, products: result };
+        res.render("products", renderData);
+      },
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+const getProduct = async (req, res) => {
+  try {
+    // Fetch the product by its ID from the request parameters.
+    // The '.slice(1)' removes the preceding slash in the ID from the route.
+    const product = await Product.findById(req.params.id.slice(1));
+
+    // If the product is not found in the database.
+    if (!product) {
+      console.log(`Product with ID ${req.params.id.slice(1)} not found.`); // Log for debugging.
+      return res.status(404).send("Product not found");
+    }
+
+    // Determine the response format based on the client's request header.
+    res.format({
+      // If client expects JSON.
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json(product); // Send product data as JSON.
+      },
+
+      // If client expects HTML.
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+
+        // Render the product using a template (e.g., PUG) and pass the product data.
+        const renderData = { product };
+        res.render("product", renderData);
+      },
+
+      // Default response if none of the above match the client's expectations.
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+const getOrderForm = async (req, res) => {
+  try {
+    // Fetch all products from the database.
+    const products = await Product.find();
+
+    res.format({
+      // For clients expecting JSON.
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json(products); // Send products data as JSON.
+      },
+
+      // For clients expecting HTML.
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+
+        // Render the PUG (or any other template engine) file for the order form,
+        // passing the fetched products as data to be used in the form.
+        res.render("orderForm", { products });
+      },
+      // Default response if the client's expected format isn't covered above.
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Internal server error");
+  }
+};
+
+const getOrders = async (req, res) => {
+  try {
+    // Fetch all the orders from the database.
+    // Also, populate the associated product details for each item in the orders.
+    const orders = await Order.find().populate("items.product");
+
+    res.format({
+      // For clients expecting JSON.
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json(orders); // Send orders data as JSON.
+      },
+
+      // For clients expecting HTML.
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+
+        // Render the PUG file for displaying all orders
+        res.render("orders", { orders: orders });
+      },
+
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+const getOrder = async (req, res) => {
+  try {
+    // Fetch the order by ID from the request parameters.
+    // The '.slice(1)' is used to remove the preceding slash in the id from the route.
+    // Also populating the associated product details for each item in the order.
+    const order = await Order.findById(req.params.id.slice(1)).populate(
+      "items.product"
+    );
+
+    // If the order is not found in the database.
+    if (!order) {
+      return res.status(404).send("Order not found");
+    }
+    res.format({
+      // If client expects JSON.
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json(order); // Send order data as JSON.
+      },
+
+      // If client expects HTML.
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+
+        // Render the specific PUG file for order details and pass the fetched order as data.
+        res.render("order", { order: order });
+      },
+
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+//Post Functions
+
+const createOrder = async (req, res) => {
+  try {
+    const { customerName, items } = req.body;
+
+    // checking for customerName if empty/not inputted
+    if (!customerName || customerName.trim() === "") {
+      return res
+        .status(400)
+        .json({ error: "Customer name is required and cannot be empty." });
+    }
+
+    // checking for items if empty/not inputted
+    if (!items || items.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "At least one product is required in the order." });
+    }
+
+    // checking that each product has a valid ID, exists in the database, has enough stock, and the ordered quantity is valid
+    for (const item of items) {
+      if (!item.product) {
+        return res
+          .status(400)
+          .json({ error: "A valid product ID is required." });
+      }
+
+      const product = await Product.findById(item.product);
+      if (!product) {
+        return res
+          .status(409)
+          .json({ error: `Product with ID ${item.product} not found.` });
+      }
+
+      if (product.stock < item.quantity) {
+        return res
+          .status(409)
+          .json({ error: `Not enough stock for product ${product.name}.` });
+      }
+
+      if (item.quantity < 1) {
+        return res.status(400).json({
+          error: `Quantity for product ${product.name} cannot be less than 1.`,
         });
-    } catch (e) {
-        console.log(e);
-        res.status(500).send("Internal Server Error");
+      }
     }
-});
 
+    // Reduce the stock quantities of each product
+    for (const item of items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: -item.quantity },
+      });
+    }
+
+    // Create the order
+    const order = new Order({ customerName, items });
+    await order.save();
+
+    res.status(201).json(order);
+  } catch (error) {
+    console.error("Error while processing order: ", error);
+    res.status(500).send("Internal Server Error");
+  }
+};
 
 // Create a new product
-app.post('/products', (req, res) => {
-    const product = {
-        id: products.length + 1,  // Simple ID auto-increment logic
-        ...req.body
-    };
-    products.push(product);
-    res.json(product);
-});
+const createProduct = async (req, res) => {
 
-// Retrieve a specific product by ID
-app.get('/products/:id', (req, res) => {
-    const product = products.find(p => p.id == req.params.id);
-    if (!product) {
-        return res.status(404).send('Product not found');
-    }
-    res.json(product);
-});
+  // Validation
+  if (!req.body.name || req.body.name.trim() === "") {
+    return res.status(400).send("Name is required and cannot be empty.");
+  }
+
+  const price = parseFloat(req.body.price);
+  if (isNaN(price) || price < 0) {
+    return res.status(400).send("Price should be a valid positive number.");
+  }
+
+  const x = parseFloat(req.body["dimensions"]["x"]);
+  const y = parseFloat(req.body["dimensions"]["y"]);
+  const z = parseFloat(req.body["dimensions"]["z"]);
+
+  if (isNaN(x) || x <= 0 || isNaN(y) || y <= 0 || isNaN(z) || z <= 0) {
+    return res.status(400).send("Dimensions should be valid positive numbers.");
+  }
+
+  const stock = parseInt(req.body.stock, 10);
+  if (isNaN(stock) || stock < 0) {
+    return res
+      .status(400)
+      .send("Stock should be a valid non-negative integer.");
+  }
+
+  // Construct the product using the Product model
+  const product = new Product({
+    name: req.body.name,
+    price: price,
+    dimensions: { x: x, y: y, z: z },
+    stock: stock,
+  });
+
+  try {
+    // Save the product into MongoDB
+    await product.save();
+
+    console.log("Successfully added product: ", product);
+    res.redirect("/");
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Internal Server Error");
+  }
+};
 
 // Add a review for a specific product
-app.post('/products/:id/reviews', (req, res) => {
-    const { rating } = req.body;
-    if (rating < 1 || rating > 10) {
-        return res.status(400).send('Rating must be between 1 and 10');
+const createReview = async (req, res) => {
+  // Validation of rating
+  const rating = parseInt(req.body.rating, 10);
+  if (isNaN(rating) || rating < 1 || rating > 10) {
+    return res.status(400).send("Rating must be between 1 and 10");
+  }
+
+  try {
+    // Find the product by its ID
+    const product = await Product.findById(req.params.id.slice(1));
+
+    // If the product doesn't exist, return a 404 error
+    if (!product) {
+      return res.status(404).send("Product not found");
     }
-    if (!reviews[req.params.id]) {
-        reviews[req.params.id] = [];
-    }
-    reviews[req.params.id].push({ rating });
-    res.json({ rating });
+
+    // Push the new rating to the product's reviews array
+    product.reviews.push(rating);
+
+    // Save the updated product back to the database
+    await product.save();
+
+    console.log(`Added review to product ${req.params.id.slice(1)}: `, rating);
+
+    // Redirect (or respond) as needed after adding the review
+    res.redirect(`/products/${req.params.id}`);
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+// Get Handlers
+
+// GET Homepage: Renders the home page.
+app.get(["/", "/home"], (req, res) => res.render("home"));
+
+// GET add product page: Renders the registration page for new products.
+app.get("/register", (req, res) => {
+  res.render("register");
 });
 
-// Retrieve reviews for a specific product
-app.get('/products/:id/reviews', (req, res) => {
-    const productReviews = reviews[req.params.id] || [];
-    res.json(productReviews);
+// GET product reviews: Fetches reviews of products.
+app.get("/reviews", getReviews);
+
+// GET products list: Fetches the list of all products.
+app.get("/products", getProducts);
+
+// GET single product: Fetches details of a specific product based on its ID.
+app.get("/products/:id", getProduct);
+
+// GET order form page: Renders the page to place a new order.
+app.get("/order-form", getOrderForm);
+
+// GET orders list: Fetches the list of all placed orders.
+app.get("/orders", getOrders);
+
+// GET single order: Fetches details of a specific order based on its ID.
+app.get("/orders/:id", getOrder);
+
+//Post Handlers
+
+// POST a new review for a specific product based on its ID.
+app.post("/products/:id/reviews", createReview);
+
+// POST a new product to the database.
+app.post("/products", createProduct);
+
+// POST a new order to the database.
+app.post("/orders", createOrder);
+
+
+//Start the connection to the database
+mongoose.connect("mongodb://127.0.0.1:27017/productsDB", {
+  useNewUrlParser: true,
 });
 
-// Start the server
-app.listen(PORT, () => {
+//Get the default Mongoose connection (can then be shared across multiple files)
+let db = mongoose.connection;
+
+db.on("error", console.error.bind(console, "connection error:"));
+db.once("open", function () {
+  // Confirmation of successful connection to the database.
+  console.log("Connected to productsDB database.");
+  // Starting the Express server.
+  app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
+  });
 });
