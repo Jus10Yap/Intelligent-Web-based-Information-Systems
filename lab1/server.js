@@ -8,14 +8,17 @@ The code below is mostly copied from my COMP2406 assignment 4 code from Fall 202
 const http = require("http");
 const pug = require("pug");
 const fs = require("fs");
+const url = require("url");
 const path = require("path");
 const express = require("express");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const mongoose = require("mongoose");
+const Crawler = require("crawler");
 
 const Product = require("./models/productModel");
 const Order = require("./models/orderModel");
+const Page = require("./models/pageModel");
 
 // Setting middleware
 app.set("views");
@@ -36,6 +39,119 @@ app.use(function (req, res, next) {
   }
   next();
 });
+
+//Set to keep track of visited URLs.
+const visitedURLs = new Set();
+
+//CRAWLER
+const c = new Crawler({
+  maxConnections: 10, //use this for parallel, rateLimit for individual
+  //rateLimit: 1000,
+
+  // This will be called for each crawled page
+  callback: async function (error, res, done) {
+    if (error) {
+      console.log(error);
+    } else {
+      let currentURL = res.options.uri;
+      if (!visitedURLs.has(currentURL)) {
+        visitedURLs.add(currentURL);
+        let $ = res.$; //get cheerio data, see cheerio docs for info
+        let links = $("a"); //get all links from page
+
+        const outgoing = [];
+
+        $(links).each(async function (i, link) {
+          //Log out links
+          //In real crawler, do processing, decide if they need to be added to queue
+          const href = $(link).attr("href");
+          if (href) {
+            outgoing.push(url.resolve(res.options.uri, href));
+
+            // If not present in database, queue it up for crawling
+            c.queue(url.resolve(res.options.uri, href));
+
+            console.log($(link).text() + ":  " + href);
+
+            //url formatter
+            //res.options.uri = https://people.scs.carleton.ca/~davidmckenney/fruitgraph/
+            //href = N-XXX.html
+          }
+        });
+        const page = new Page({
+          url: currentURL,
+          content: $("body").html(),
+          outgoingLinks: outgoing,
+        });
+        await page.save();
+      } else {
+        console.log(`Skipping already visited URL: ${currentURL}`);
+      }
+    }
+    done();
+  },
+});
+
+app.get("/popular", async (req, res) => {
+  try {
+    const result = await Page.aggregate([
+      { $unwind: "$outgoingLinks" }, //deconstructing all the outgoingLinks arrays in the db
+      { $group: { _id: "$outgoingLinks", count: { $sum: 1 } } }, //group outgoingLinks and count how many times this url is referenced
+      { $sort: { count: -1 } }, //sort by descending order
+      { $limit: 10 }, //10 pages only
+    ]);
+
+    
+    res.json(
+      result.map((item) => ({
+        url: item._id,
+      }))
+    );
+  } catch (err) {
+    res.status(500).send("Internal server error");
+  }
+});
+
+app.get('/page/:url', async (req, res) => {
+  try {
+      const partialUrl = req.params.url.slice(1);
+      const fullUrl = `https://people.scs.carleton.ca/~davidmckenney/fruitgraph/${partialUrl}`;
+
+      // Find the page in the database based on the full URL
+      const page = await Page.findOne({ url: fullUrl });
+
+      if (!page) {
+          return res.status(404).send('Page not found');
+      }
+
+      // Aggregate incoming links for the requested page
+      const incomingLinks = await Page.aggregate([
+          { $unwind: '$outgoingLinks' },
+          { $match: { outgoingLinks: fullUrl } },  // Match links that point to the requested page
+          { $group: { _id: '$url' } }  // Group by the source page's URL
+      ]);
+
+      res.json({
+          url: page.url,
+          incomingLinks: incomingLinks.map(item => item._id)
+      });
+
+  } catch (err) {
+      console.error(err);
+      res.status(500).send('Internal server error');
+  }
+});
+
+
+//Perhaps a useful event
+//Triggered when the queue becomes empty
+//There are some other events, check crawler docs
+c.on("drain", function () {
+  console.log("Done.");
+});
+
+//Queue a URL, which starts the crawl
+c.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
 
 //Get functions
 
@@ -332,7 +448,6 @@ const createOrder = async (req, res) => {
 
 // Create a new product
 const createProduct = async (req, res) => {
-
   // Validation
   if (!req.body.name || req.body.name.trim() === "") {
     return res.status(400).send("Name is required and cannot be empty.");
@@ -449,7 +564,6 @@ app.post("/products", createProduct);
 
 // POST a new order to the database.
 app.post("/orders", createOrder);
-
 
 //Start the connection to the database
 mongoose.connect("mongodb://127.0.0.1:27017/productsDB", {
