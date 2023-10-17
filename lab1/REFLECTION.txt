@@ -1,29 +1,21 @@
-Lab Reflection Answers:
 
-1. Discuss the collections and documents that you store in the database (e.g., what data are you storing about products, orders, etc.).
-    Products Collection
-    - name
-    - price
-    - dimensions
-    - stock
-    - reviews
 
-    Orders Collection
-    - customer name
-    - items : array of objects with two attributes
-        - product
-        - quantity
+How do you load your data from the database to be indexed?
 
-2. What is the structure of your new order data? How is it sent to the server (e.g., through an HTML form, JSON request)?
-    The structure of the order data consists of a customerName and an array of items. 
-    Each item in the array contains a product (which is the product ID) and the quantity for that product.
-    The data is sent to the server through an HTML form. When the form is submitted, the data is converted into JSON and sent to the server using a POST request.
+The data is loaded from the MongoDB database using Mongoose. As pages are crawled, they are saved to the database using the Page model. While saving, the pages are also indexed in the elasticlunr index in real-time. Specifically, when a new page is encountered in the crawler's callback, its content is saved to the database and then immediately added to the search index.
+What fields do you perform indexing on?
 
-3. How do you load the data for a specific order so it can be displayed to the user?
-    uses the order's unique ID 
+The fields that are indexed are "title" and "body" of the web pages. This means that search queries can match content found within the title or the body of the indexed pages.
+How is the search score computed?
 
-    GET request /orders/:id
+The search score is computed by the elasticlunr library. The library uses an inverted index to facilitate fast full-text searches. The score for a document (in this case, a webpage) in response to a query is typically computed based on term frequency-inverse document frequency (TF-IDF) and the vector space model. This means that terms that appear frequently in a document but not in many documents in the corpus will have a higher weight. The exact score also depends on the library's specific algorithms and configurations.
+How scalable is your implementation? How could you improve it?
 
-    use the Mongoose's .populate() function to get related product documents based on the product IDs present in the order's items array
-
-    pass retrieved data to pug template/file related product documents based on the product IDs present in the order's items array
+Scalability: The current implementation is moderately scalable. For small to medium-sized datasets, this setup will work quite efficiently. However, as the number of web pages grows substantially, loading every new page into the index during every crawl could become a bottleneck.
+Improvements:
+Database Indexing: Ensure that database fields queried frequently (like URLs) are indexed in MongoDB to speed up lookups.
+Caching: Implement a caching mechanism (like Redis) to store frequently searched terms and their results. This would reduce the time taken for popular queries.
+Distributed Crawling: If the number of pages to be crawled is very large, consider distributed crawling solutions that can run across multiple machines.
+Batch Indexing: Instead of indexing in real-time during the crawl, pages can be indexed in batches at regular intervals. This might be more efficient for large datasets.
+Deduplication: Ensure that only new or changed pages are re-indexed, rather than re-indexing unchanged content. This can be done by checking a hash of the page's content before and after a crawl.
+Scaling Search: If search query volume becomes high, consider shifting to a more robust full-text search engine like Elasticsearch.

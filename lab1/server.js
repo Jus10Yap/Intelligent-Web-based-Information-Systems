@@ -15,6 +15,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const mongoose = require("mongoose");
 const Crawler = require("crawler");
+const elasticlunr = require("elasticlunr");
 
 const Product = require("./models/productModel");
 const Order = require("./models/orderModel");
@@ -42,6 +43,15 @@ app.use(function (req, res, next) {
 
 //Set to keep track of visited URLs.
 const visitedURLs = new Set();
+
+//Create your index
+//Specify fields you want to include in search
+//Specify reference you want back (i.e., page ID)
+const index = elasticlunr(function () {
+  this.addField("title");
+  this.addField("body");
+  this.setRef("id");
+});
 
 //CRAWLER
 const c = new Crawler({
@@ -78,12 +88,23 @@ const c = new Crawler({
             //href = N-XXX.html
           }
         });
+
+        const pageTitle = $("title").text();
+        const pageContent = $("body").text();
+
         const page = new Page({
           url: currentURL,
           content: $("body").html(),
           outgoingLinks: outgoing,
         });
         await page.save();
+
+        // Add page to search index
+        index.addDoc({
+          id: page._id, // Use the string representation of the ObjectID
+          title: pageTitle,
+          body: pageContent,
+        });
       } else {
         console.log(`Skipping already visited URL: ${currentURL}`);
       }
@@ -101,7 +122,6 @@ app.get("/popular", async (req, res) => {
       { $limit: 10 }, //10 pages only
     ]);
 
-    
     res.json(
       result.map((item) => ({
         url: item._id,
@@ -112,36 +132,34 @@ app.get("/popular", async (req, res) => {
   }
 });
 
-app.get('/page/:url', async (req, res) => {
+app.get("/page/:url", async (req, res) => {
   try {
-      const partialUrl = req.params.url.slice(1);
-      const fullUrl = `https://people.scs.carleton.ca/~davidmckenney/fruitgraph/${partialUrl}`;
+    const partialUrl = req.params.url.slice(1);
+    const fullUrl = `https://people.scs.carleton.ca/~davidmckenney/fruitgraph/${partialUrl}`;
 
-      // Find the page in the database based on the full URL
-      const page = await Page.findOne({ url: fullUrl });
+    // Find the page in the database based on the full URL
+    const page = await Page.findOne({ url: fullUrl });
 
-      if (!page) {
-          return res.status(404).send('Page not found');
-      }
+    if (!page) {
+      return res.status(404).send("Page not found");
+    }
 
-      // Aggregate incoming links for the requested page
-      const incomingLinks = await Page.aggregate([
-          { $unwind: '$outgoingLinks' },
-          { $match: { outgoingLinks: fullUrl } },  // Match links that point to the requested page
-          { $group: { _id: '$url' } }  // Group by the source page's URL
-      ]);
+    // Aggregate incoming links for the requested page
+    const incomingLinks = await Page.aggregate([
+      { $unwind: "$outgoingLinks" },
+      { $match: { outgoingLinks: fullUrl } }, // Match links that point to the requested page
+      { $group: { _id: "$url" } }, // Group by the source page's URL
+    ]);
 
-      res.json({
-          url: page.url,
-          incomingLinks: incomingLinks.map(item => item._id)
-      });
-
+    res.json({
+      url: page.url,
+      incomingLinks: incomingLinks.map((item) => item._id),
+    });
   } catch (err) {
-      console.error(err);
-      res.status(500).send('Internal server error');
+    console.error(err);
+    res.status(500).send("Internal server error");
   }
 });
-
 
 //Perhaps a useful event
 //Triggered when the queue becomes empty
@@ -153,7 +171,35 @@ c.on("drain", function () {
 //Queue a URL, which starts the crawl
 c.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
 
-//Get functions
+
+
+app.get("/search", async (req, res) => {
+  try {
+    let webpageResults = [];
+    if (req.query.q) {
+      console.log(req.query.q);
+      const results = index.search(req.query.q, {expand: true}).slice(0, 10); 
+      console.log(results);
+      // Fetch data for each result using reference ID
+      for (const result of results) {
+        const page = await Page.findById(result.ref);
+        if (page) {
+          let title = page.url.split('/').pop().replace('.html', '');
+          webpageResults.push({
+            id: result.ref,
+            url: page.url, 
+            title: title,
+            score: result.score
+          });
+        }
+      }
+    }
+    res.render("search", { webpageResults: webpageResults });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal server error");
+  }
+});
 
 const getReviews = async (req, res) => {
   try {
