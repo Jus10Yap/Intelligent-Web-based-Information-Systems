@@ -16,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 const mongoose = require("mongoose");
 const Crawler = require("crawler");
 const elasticlunr = require("elasticlunr");
+const { Matrix } = require("ml-matrix");
 
 const Product = require("./models/productModel");
 const Order = require("./models/orderModel");
@@ -43,6 +44,7 @@ app.use(function (req, res, next) {
 
 //Set to keep track of visited URLs.
 const visitedURLs = new Set();
+const urls = [];
 
 //Create your index
 //Specify fields you want to include in search
@@ -66,6 +68,7 @@ const c = new Crawler({
       let currentURL = res.options.uri;
       if (!visitedURLs.has(currentURL)) {
         visitedURLs.add(currentURL);
+        urls.push(currentURL);
         let $ = res.$; //get cheerio data, see cheerio docs for info
         let links = $("a"); //get all links from page
 
@@ -106,12 +109,35 @@ const c = new Crawler({
           body: pageContent,
         });
       } else {
-        console.log(`Skipping already visited URL: ${currentURL}`);
-      }
+      console.log(`Skipping already visited URL: ${currentURL}`);
+     }
     }
     done();
-  },
+   },
 });
+
+async function calculateAndSaveIncomingLinks() {
+    // Fetch all pages from the database
+    const pages = await Page.find();
+
+    // For each page, populate its incoming links
+    for (let currentPage of pages) {
+        const incomingLinks = [];
+
+        // Loop through all pages to see which ones link to the current page
+        for (let page of pages) {
+            if (page.outgoingLinks.includes(currentPage.url)) {
+                incomingLinks.push(page.url);
+            }
+        }
+
+        // Update the current page's incomingLinks field in the database
+        currentPage.incomingLinks = incomingLinks;
+        await currentPage.save();
+    }
+
+    console.log("Updated all pages with incoming link URLs.");
+}
 
 app.get("/popular", async (req, res) => {
   try {
@@ -161,42 +187,105 @@ app.get("/page/:url", async (req, res) => {
   }
 });
 
+function matrixToTxt(matrix) {
+  return matrix.map(row => row.join(" ")).join("\n");
+}
+
+
+async function pageRank() {
+  const alpha = 0.1; // Damping factor
+  const threshold = 0.0001; // Convergence threshold
+
+  // 1. Fetch all pages from the database
+  const pages = await Page.find();
+
+  const N = pages.length;
+  let M = Array(N).fill().map(() => Array(N).fill(0));
+
+  // 2. Create a transition matrix
+  pages.forEach((page, i) => {
+      if (page.outgoingLinks.length) {
+          page.outgoingLinks.forEach((outLink) => {
+              const j = pages.findIndex(p => p.url === outLink);
+              if (j !== -1) {
+                  M[j][i] = 1 / page.outgoingLinks.length;
+              }
+          });
+      } else {
+          for (let j = 0; j < N; j++) {
+              M[j][i] = 1 / N;
+          }
+      }
+  });
+
+  let x0 = Array(N).fill(1 / N);
+  let diff = 1;
+
+  while (diff > threshold) {
+      const prev = [...x0];
+
+      x0 = M.map(row => row.reduce((acc, val, idx) => acc + val * prev[idx], 0))
+          .map(val => alpha * val + (1 - alpha) / N);
+
+      diff = x0.reduce((acc, val, idx) => acc + Math.abs(val - prev[idx]), 0);
+  }
+
+  const urls = x0.map((value, index) => ({
+      url: pages[index].url,
+      rank: value,
+  }));
+
+  const sortedUrls = urls.sort((a, b) => b.rank - a.rank).slice(0, 25);
+
+  console.log("PageRank Values:");
+  sortedUrls.forEach((entry, index) => {
+      console.log(`#${index + 1}. (${entry.rank.toFixed(10)}) ${entry.url}`);
+  });
+}
+
 //Perhaps a useful event
 //Triggered when the queue becomes empty
 //There are some other events, check crawler docs
 c.on("drain", function () {
   console.log("Done.");
+  calculateAndSaveIncomingLinks().catch(error => {
+    console.error("Error updating the database:", error);
+  });
+  // pageRank().catch((error) => {
+  //   console.log("Error computing PageRank:", error);
+  // });
+});
+pageRank().catch((error) => {
+  console.log("Error computing PageRank:", error);
 });
 
 //Queue a URL, which starts the crawl
-c.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
-
-
+//c.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
 
 app.get("/search", async (req, res) => {
   try {
     let webpageResults = [];
     if (req.query.q) {
       console.log(req.query.q);
-      const results = index.search(req.query.q, {expand: true}).slice(0, 10); 
+      const results = index.search(req.query.q, { expand: true }).slice(0, 10);
       console.log(results);
       // Fetch data for each result using reference ID
       for (const result of results) {
         const page = await Page.findById(result.ref);
         if (page) {
-          let title = page.url.split('/').pop().replace('.html', '');
+          let title = page.url.split("/").pop().replace(".html", "");
           webpageResults.push({
             id: result.ref,
-            url: page.url, 
+            url: page.url,
             title: title,
-            score: result.score
+            score: result.score,
           });
         }
       }
     }
     res.render("search", { webpageResults: webpageResults });
   } catch (err) {
-    console.error(err);
+    console.log(err);
     res.status(500).send("Internal server error");
   }
 });
