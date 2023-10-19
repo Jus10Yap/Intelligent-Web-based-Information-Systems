@@ -109,34 +109,34 @@ const c = new Crawler({
           body: pageContent,
         });
       } else {
-      console.log(`Skipping already visited URL: ${currentURL}`);
-     }
+        console.log(`Skipping already visited URL: ${currentURL}`);
+      }
     }
     done();
-   },
+  },
 });
 
 async function calculateAndSaveIncomingLinks() {
-    // Fetch all pages from the database
-    const pages = await Page.find();
+  // Fetch all pages from the database
+  const pages = await Page.find();
 
-    // For each page, populate its incoming links
-    for (let currentPage of pages) {
-        const incomingLinks = [];
+  // For each page, populate its incoming links
+  for (let currentPage of pages) {
+    const incomingLinks = [];
 
-        // Loop through all pages to see which ones link to the current page
-        for (let page of pages) {
-            if (page.outgoingLinks.includes(currentPage.url)) {
-                incomingLinks.push(page.url);
-            }
-        }
-
-        // Update the current page's incomingLinks field in the database
-        currentPage.incomingLinks = incomingLinks;
-        await currentPage.save();
+    // Loop through all pages to see which ones link to the current page
+    for (let page of pages) {
+      if (page.outgoingLinks.includes(currentPage.url)) {
+        incomingLinks.push(page.url);
+      }
     }
 
-    console.log("Updated all pages with incoming link URLs.");
+    // Update the current page's incomingLinks field in the database
+    currentPage.incomingLinks = incomingLinks;
+    await currentPage.save();
+  }
+
+  console.log("Updated all pages with incoming link URLs.");
 }
 
 app.get("/popular", async (req, res) => {
@@ -187,59 +187,77 @@ app.get("/page/:url", async (req, res) => {
   }
 });
 
-function matrixToTxt(matrix) {
-  return matrix.map(row => row.join(" ")).join("\n");
-}
 
 
 async function pageRank() {
   const alpha = 0.1; // Damping factor
   const threshold = 0.0001; // Convergence threshold
 
-  // 1. Fetch all pages from the database
-  const pages = await Page.find();
+  //getting all pages from the database
+  let pages = await Page.find();
 
-  const N = pages.length;
-  let M = Array(N).fill().map(() => Array(N).fill(0));
-
-  // 2. Create a transition matrix
-  pages.forEach((page, i) => {
-      if (page.outgoingLinks.length) {
-          page.outgoingLinks.forEach((outLink) => {
-              const j = pages.findIndex(p => p.url === outLink);
-              if (j !== -1) {
-                  M[j][i] = 1 / page.outgoingLinks.length;
-              }
-          });
-      } else {
-          for (let j = 0; j < N; j++) {
-              M[j][i] = 1 / N;
-          }
-      }
+  //sort the pages based on their urls "N-X.html"
+  pages = pages.sort((a, b) => {
+    const aNum = parseInt(a.url.split("/").pop().split("-")[1]);
+    const bNum = parseInt(b.url.split("/").pop().split("-")[1]);
+    return aNum - bNum;
   });
 
+  const N = pages.length; //1000
+  //1000 x 1000 matrix filled with zeroes
+  let M = Array(N)
+    .fill()
+    .map(() => Array(N).fill(0));
+
+  //populate transition matrix using outgoing links of each page/url
+  pages.forEach((page, i) => {
+    if (page.outgoingLinks.length) {
+      page.outgoingLinks.forEach((outLink) => {
+        const j = pages.findIndex((p) => p.url === outLink);
+        if (j !== -1) {
+          // Set the probability for the link from page i to page j
+          M[j][i] = 1 / page.outgoingLinks.length;
+        }
+      });
+    } else {
+      //if a page/url does not have an outgoing link
+      for (let j = 0; j < N; j++) {
+        M[j][i] = 1 / N;
+      }
+    }
+  });
+  // Initialize the PageRank
   let x0 = Array(N).fill(1 / N);
   let diff = 1;
 
+  // compute the PageRank vector until convergence
   while (diff > threshold) {
-      const prev = [...x0];
+    const prevMatrix = new Matrix([x0]); // Convert to matrix object
 
-      x0 = M.map(row => row.reduce((acc, val, idx) => acc + val * prev[idx], 0))
-          .map(val => alpha * val + (1 - alpha) / N);
+    // Compute the next PageRank vector using the transition matrix
+    x0 = M.map((row) =>
+      row.reduce((i, val, index) => i + val * x0[index], 0)
+    ).map((val) => (1 - alpha) * val + alpha / N); //multiply the resulting matrix by (1- 𝝰) then Add 𝝰/N to each entry of the resulting matrix
 
-      diff = x0.reduce((acc, val, idx) => acc + Math.abs(val - prev[idx]), 0);
+    const x0Matrix = new Matrix([x0]);
+
+    // Compute the difference matrix
+    const diffMatrix = x0Matrix.sub(prevMatrix);
+
+    // Calculate the L2 norm
+    diff = diffMatrix.norm();
   }
 
   const urls = x0.map((value, index) => ({
-      url: pages[index].url,
-      rank: value,
+    url: pages[index].url,
+    rank: value,
   }));
 
   const sortedUrls = urls.sort((a, b) => b.rank - a.rank).slice(0, 25);
 
   console.log("PageRank Values:");
   sortedUrls.forEach((entry, index) => {
-      console.log(`#${index + 1}. (${entry.rank.toFixed(10)}) ${entry.url}`);
+    console.log(`#${index + 1}. (${entry.rank.toFixed(10)}) ${entry.url}`);
   });
 }
 
@@ -248,19 +266,19 @@ async function pageRank() {
 //There are some other events, check crawler docs
 c.on("drain", function () {
   console.log("Done.");
-  calculateAndSaveIncomingLinks().catch(error => {
+  calculateAndSaveIncomingLinks().catch((error) => {
     console.error("Error updating the database:", error);
   });
-  // pageRank().catch((error) => {
-  //   console.log("Error computing PageRank:", error);
-  // });
-});
-pageRank().catch((error) => {
-  console.log("Error computing PageRank:", error);
 });
 
 //Queue a URL, which starts the crawl
 //c.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
+
+pageRank().catch((error) => {
+  console.log("Error computing PageRank:", error);
+});
+
+
 
 app.get("/search", async (req, res) => {
   try {
@@ -703,6 +721,7 @@ app.post("/orders", createOrder);
 //Start the connection to the database
 mongoose.connect("mongodb://127.0.0.1:27017/productsDB", {
   useNewUrlParser: true,
+  useUnifiedTopology: true,
 });
 
 //Get the default Mongoose connection (can then be shared across multiple files)
