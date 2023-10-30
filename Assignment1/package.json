@@ -1,0 +1,24 @@
+{
+  "name": "assignment1",
+  "version": "1.0.0",
+  "description": "Fall 2023 COMP4601 Assignment 1 ",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "db-del": "node database-delete.js"
+  },
+  "author": "Justine Yap",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "crawler": "^1.4.0",
+    "elasticlunr": "^0.9.5",
+    "express": "^4.18.2",
+    "fs": "0.0.1-security",
+    "ml-matrix": "^6.10.6",
+    "mongodb": "^4.9.1",
+    "mongoose": "^5.12.0",
+    "pug": "^3.0.2"
+  }
+}

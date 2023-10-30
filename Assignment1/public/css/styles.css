@@ -1,0 +1,167 @@
+body {
+    color: #001233;
+    font-family: Helvetica;
+    background-color: #edf2f4;
+    margin: 0px;
+    padding: 0px;
+}
+
+#head {
+    display: flexbox;
+    flex-direction: row;
+    background-color: #2b2d42;
+    width: 100%;
+    padding: 10px;
+}
+
+input {
+    border: 0;
+    border-bottom: 2px solid #001233;
+    outline: 0;
+    margin-left: 15px;
+    margin-right: 15px;
+    font-size: 1.3rem;
+    color: #001233;
+    padding: 7px 0;
+    background: transparent;
+    transition: border-color 0.2s;
+}
+
+input::placeholder {
+    font-size: 15px;  /* Adjust the value to your preference */
+}
+
+#register {
+    margin: 10px;
+    padding-left: 10px;
+}
+
+#home {
+    text-align: center;
+}
+
+#list {
+    margin: 10px;
+    padding-left: 10px;
+    line-height: 1.6;
+}
+
+.product-header {
+    display: flex;
+    align-items: center;
+}
+
+.product-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* To align items to the left; remove if not necessary */
+    margin-bottom: 20px; /* Spacing between each product's reviews set */
+}
+
+.product-item > p:first-child {
+    font-weight: bold; 
+    font-size: 20px; 
+    margin-bottom: 10px; 
+}
+
+.product-item > p:not(:first-child) {
+    margin: 5px 0; 
+    font-size: 15px;
+}
+span.stock-header, span.product-stock {
+    width: 50px; 
+    text-align: right;
+    margin-right: 20px;
+}
+
+.product-item {
+    margin-top: 5px;
+    
+}
+
+
+#main {
+    margin: 10px;
+    padding-left: 10px;
+    line-height: 1.6;
+}
+
+hr {
+    border-top: 3px solid #0f2347;
+}
+
+.aid {
+    font-weight: regular;
+    color: #0f2347;
+    padding: 10px;
+    text-decoration: none;
+}
+
+.ahead {
+    font-weight: bold;
+    color: #edf2f4;
+    display: inline-block;
+}
+
+#aheadText {
+    font-weight: regular;
+    color: white;
+    display: inline-block;
+    padding-right: 15px;
+    padding-left: 15px;
+}
+
+a {
+    color: #0f2347;
+    padding: 10px;
+    text-decoration: none;
+}
+
+button {
+    display: inline-block;
+    padding: 0.35em 1.2em;
+    border: 0.1em solid #001233;
+    margin: 0 0.3em 0.3em 0;
+    border-radius: 0.12em;
+    box-sizing: border-box;
+    text-decoration: none;
+    font-weight: 300;
+    color: #001233;
+    text-align: center;
+    transition: all 0.2s;
+    margin-left: 15px;
+}
+
+button:hover {
+    color: #edf2f4;
+    background-color: #001233;
+}
+
+.column {
+    float: left;
+}
+
+.left {
+    width: 10%;
+}
+
+.right {
+    width: 25%;
+}
+
+.middle {
+    width: 65%;
+}
+
+#restaurant-select {
+    padding-bottom: 5px;
+}
+
+#form {
+    padding: 10px;
+    margin: 5px;
+}
+
+div#webpage-results {
+    margin-left: 30px;  
+}
