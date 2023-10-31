@@ -1,0 +1,33 @@
+html(lang="en")
+    head   
+        meta(charset="UTF-8")
+        meta(http-equiv="X-UA-Compatible", content="IE=edge")
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        link(rel="stylesheet" href="/css/styles.css")
+        title Fruits
+    body
+        include ./header
+
+        div#webpage-search-bar
+            form(action="/fruits", method="get")
+                input(type="text", name="q", placeholder="Search crawled web pages...")
+                label
+                    input(type="checkbox", name="boost", value="true")
+                    | Boost
+                input(type="number", name="limit", placeholder="Enter how many results you want", min="1", max="50", value="10")
+
+                button(type="submit") Search Fruits 
+
+        div#webpage-results
+            h2 Web Page Search Results
+            if(webpageResults && webpageResults.length)
+                each result in webpageResults
+                    div.webpage-item
+                        h3 #{result.title}
+                        p.url #{result.url}
+                        p 
+                            span Score: #{result.score.toFixed(2)}
+                            if result.pageRank
+                                | , PageRank: #{result.pageRank.toFixed(2)}
+            else
+                p No web pages match your search.

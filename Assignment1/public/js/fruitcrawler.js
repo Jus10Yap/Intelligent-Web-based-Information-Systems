@@ -8,15 +8,6 @@ const { Matrix } = require("ml-matrix");
 const visitedURLs = new Set();
 const urls = [];
 
-//Create your index
-//Specify fields you want to include in search
-//Specify reference you want back (i.e., page ID)
-const index = elasticlunr(function () {
-  this.addField("title");
-  this.addField("body");
-  this.setRef("id");
-});
-
 
 //CRAWLER
 const c = new Crawler({
@@ -64,13 +55,6 @@ const c = new Crawler({
           outgoingLinks: outgoing,
         });
         await fruit.save();
-
-        // Add fruit to search index
-        index.addDoc({
-          id: fruit._id, // Use the string representation of the ObjectID
-          title: fruitTitle,
-          body: fruitContent,
-        });
 
       } else {
         console.log(`Skipping already visited URL: ${currentURL}`);
@@ -180,6 +164,9 @@ async function pageRank() {
   });
 }
 
+
+
+
 //Triggered when the queue becomes empty
 c.on("drain", async function () {
   console.log("Fruits Crawling completed.");
@@ -189,9 +176,6 @@ c.on("drain", async function () {
     
     //compute and save the PageRank values onto db
     await pageRank();
-
-  
-
   } catch (error) {
     console.log("Error post-processing the crawled data:", error);
   }
@@ -199,4 +183,7 @@ c.on("drain", async function () {
   console.log("Done.");
 });
 
-module.exports = c; //exports the crawler
+//export crawler and index
+module.exports = {
+  crawler: c
+};
