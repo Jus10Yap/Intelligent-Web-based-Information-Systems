@@ -3,33 +3,33 @@ html(lang="en")
     meta(charset="UTF-8")
     meta(http-equiv="X-UA-Compatible", content="IE=edge")
     meta(name="viewport", content="width=device-width, initial-scale=1.0")
-    link(rel="stylesheet", href="/css/styles.css")
-    title Fruits
+    link(rel="stylesheet" href="/css/styles.css")
+    title Books
   body
     include ./header
 
     div#webpage-search-bar
-      form(action="/fruits", method="get")
-        input(type="text", name="q", placeholder="Search crawled web pages...")
+      form(action="/personal", method="get")
+        input(type="text", name="q", placeholder="Search books...") 
         label
           input(type="checkbox", name="boost", value="true")
           | Boost
         input(type="number", name="limit", placeholder="Enter how many results you want", min="1", max="50", value="10")
-        button(type="submit") Search Fruits
+        button(type="submit") Search Books
 
     div#webpage-results
-      h2 Web Page Search Results
-      if webpageResults && webpageResults.length
-        each result in webpageResults
+      h2 Book Search Results
+      if bookResults && bookResults.length 
+        each result in bookResults
           div.webpage-item
-            a(href=("/fruits/" + result.title))
-              h3= result.title
-            p.url= result.url
+            a(href=("/books/:" + result.id))
+              h3 #{result.title}
+            p.url #{result.url}
             p
               span Score: #{result.score.toFixed(15)}
               if result.pageRank
                 | , PageRank: #{result.pageRank.toFixed(15)}
               if result.boost
-                | , Boost: #{result.boost.toFixed(15)}
+                | , Boost: #{result.boost.toFixed(15)} 
       else
-        p No web pages match your search.
+        p No books match your search.

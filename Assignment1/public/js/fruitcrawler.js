@@ -184,6 +184,4 @@ c.on("drain", async function () {
 });
 
 //export crawler and index
-module.exports = {
-  crawler: c
-};
+module.exports = c;

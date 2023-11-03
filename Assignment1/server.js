@@ -14,10 +14,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const mongoose = require("mongoose");
 const elasticlunr = require("elasticlunr");
+const cheerio = require("cheerio");
 
-const fruitcrawler= require("./public/js/fruitcrawler");
+//crawler files
+const fruitcrawler = require("./public/js/fruitcrawler");
 const bookcrawler = require("./public/js/bookcrawler");
+
+//models
 const Fruit = require("./models/fruitModel");
+const Book = require("./models/bookModel");
 
 //setting middleware
 app.set("views");
@@ -39,32 +44,59 @@ app.use(function (req, res, next) {
   next();
 });
 
-//Create your index
-//Specify fields you want to include in search
-//Specify reference you want back (i.e., page ID)
-const index = elasticlunr(function () {
+//index for fruits
+const fruitIndex = elasticlunr(function () {
   this.addField("title");
   this.addField("body");
   this.setRef("id");
 });
 
-async function populateIndex() {
+//populates fruit index
+async function populateFruitIndex() {
   try {
-      // Retrieve all fruits from the database
-      const fruits = await Fruit.find();
+    // Retrieve all fruits from the database
+    const fruits = await Fruit.find();
 
-      // Add each fruit to the index
-      fruits.forEach(fruit => {
-          index.addDoc({
-              id: fruit._id.toString(), // Use the string representation of the ObjectID
-              title: fruit.title, // Use the title field if you added it, else skip this.
-              body: fruit.content
-          });
+    // Add each fruit to the index
+    fruits.forEach((fruit) => {
+      fruitIndex.addDoc({
+        id: fruit._id.toString(), //ObjectID
+        title: fruit.title,
+        body: fruit.content,
       });
+    });
 
-      console.log("Index populated!");
+    console.log("Fruit Index populated!");
   } catch (error) {
-      console.error("Error populating the index:", error);
+    console.log("Error populating the fruit index:", error);
+  }
+}
+
+//index for books
+const bookIndex = elasticlunr(function () {
+  this.addField("title");
+  this.addField("description");
+  this.setRef("id");
+});
+
+//populates book index
+async function populateBookIndex() {
+  try {
+    // Retrieve all books from the database
+    const books = await Book.find();
+
+    // Add each book to the book index
+    books.forEach((book) => {
+      bookIndex.addDoc({
+        id: book._id.toString(), //ObjectID
+        title: book.title,
+        description: book.description,
+      });
+    });
+
+    console.log("Book index populated!");
+  } catch (error) {
+    console.log("Error populating the book index:", error);
   }
 }
 
@@ -72,29 +104,47 @@ async function populateIndex() {
 // GET Homepage: Renders the home page.
 app.get(["/", "/home"], (req, res) => res.render("home"));
 
+// GET fruits
 app.get("/fruits", async (req, res) => {
   try {
-    
     let webpageResults = [];
     const query = req.query.q || "";
     const boost = req.query.boost === "true"; // Check if boost is true
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 50); // Ensure limit is between 1 and 50, default to 10
 
-    // Search the index
-    const results = index.search(query, { expand: true });
-
-    // If boost is enabled, boost the results using PageRank
-    if (boost) {
-      results.sort(async (a, b) => {
-        const pageRankA = (await Fruit.findById(a.ref)).pageRank || 0;
-        const pageRankB = (await Fruit.findById(b.ref)).pageRank || 0;
-        // Consider both PageRank and search score
-        return (b.score + pageRankB) - (a.score + pageRankA);
-      });
+    if (limit < 1 || limit > 50) {
+      //edge case where `limit` is not within 1-50
+      return res
+        .status(400)
+        .json({ error: "Query parameter 'limit' must be between 1 and 50" });
     }
 
+    // Search the index
+    const results = fruitIndex.search(query, { expand: true });
+
+    // Calculate and add boost values to the results
+    if (boost) {
+      for (const result of results) {
+        const fruit = await Fruit.findById(result.ref);
+        if (fruit) {
+          // Implement the boost calculation logic here
+          // For example, using PageRank as boost
+          const pageRankBoost = fruit.pageRank || 0;
+          result.boost = pageRankBoost; // Add the boost value to the result
+        }
+      }
+    }
+
+    // Sort the results by a combination of score and boost
+    results.sort((a, b) => {
+      // Consider both PageRank boost and search score
+      const boostA = a.boost || 0;
+      const boostB = b.boost || 0;
+      return b.score + boostB - (a.score + boostA);
+    });
+
     // Fetch the fruits based on the search results
-    for (const result of results.slice(0, limit)) {  // Limit the results
+    for (const result of results.slice(0, limit)) {
       const fruit = await Fruit.findById(result.ref);
       if (fruit) {
         let title = fruit.url.split("/").pop().replace(".html", "");
@@ -103,19 +153,154 @@ app.get("/fruits", async (req, res) => {
           url: fruit.url,
           title: title,
           score: result.score,
-          pageRank: fruit.pageRank  
+          pageRank: fruit.pageRank,
+          boost: result.boost,
         });
       }
     }
 
-    res.render("fruits", { webpageResults: webpageResults });
+    res.format({
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json({ webpageResults }); // Send JSON response
+      },
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+        res.render("fruits", { webpageResults }); // Render PUG template and send HTML response
+      },
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Internal server error" }); // Send JSON error response
+  }
+});
 
+app.get("/fruits/:url", async (req, res) => {
+  try {
+    const partialUrl = req.params.url.slice(1);
+    const fullUrl = `https://people.scs.carleton.ca/~davidmckenney/fruitgraph/${partialUrl}.html`;
+
+    // Find the fruit in the database based on the full URL
+    const fruit = await Fruit.findOne({ url: fullUrl });
+
+    if (!fruit) {
+      return res.status(404).send("Fruit not found");
+    }
+
+    // Find incoming links to the requested page
+    const incomingLinks = await Fruit.find({ outgoingLinks: fullUrl }, "url");
+
+    // Use Cheerio to parse the HTML content and extract text
+    const $ = cheerio.load(fruit.content);
+    const textContent = $("body").text(); // Extract text content from the <body> element
+
+    // Split the text content into words and count word frequency
+    const words = textContent.split(/\s+/).filter((word) => word.trim() !== ""); // Split and filter out empty strings (white spaces)
+    const wordFrequency = {};
+    for (const word of words) {
+      console.log(word);
+      wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+    }
+    let title = fruit.url.split("/").pop().replace(".html", "");
+
+    res.format({
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json({
+          url: fruit.url,
+          title: title,
+          incomingLinks: incomingLinks.map((link) => link.url),
+          outgoingLinks: fruit.outgoingLinks,
+          wordFrequency: wordFrequency,
+        });
+      },
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+        res.render("fruit", {
+          url: fruit.url,
+          title: title,
+          incomingLinks: incomingLinks.map((link) => link.url),
+          outgoingLinks: fruit.outgoingLinks,
+          wordFrequency: wordFrequency,
+        });
+      },
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
   } catch (err) {
     console.log(err);
     res.status(500).send("Internal server error");
   }
 });
 
+// GET books
+app.get("/personal", async (req, res) => {
+  try {
+    let bookResults = [];
+    const query = req.query.q || "";
+    const boost = req.query.boost === "true"; // Check if boost is true
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 50); // Ensure limit is between 1 and 50, default to 10
+
+    // Search the book index
+    const results = bookIndex.search(query, { expand: true });
+
+    // Calculate and add boost values to the results
+    if (boost) {
+      for (const result of results) {
+        const book = await Book.findById(result.ref);
+        if (book) {
+          // Implement the boost calculation logic here (e.g., using PageRank)
+          const pageRankBoost = book.pageRank || 0;
+          result.boost = pageRankBoost; // Add the boost value to the result
+        }
+      }
+    }
+
+    // Sort the results by a combination of score and boost
+    results.sort((a, b) => {
+      // Consider both PageRank boost and search score
+      const boostA = a.boost || 0;
+      const boostB = b.boost || 0;
+      return b.score + boostB - (a.score + boostA);
+    });
+
+    // Fetch the books based on the search results
+    for (const result of results.slice(0, limit)) {
+      const book = await Book.findById(result.ref);
+      if (book) {
+        bookResults.push({
+          id: result.ref,
+          url: book.url,
+          title: book.title,
+          description: book.description,
+          score: result.score,
+          pageRank: book.pageRank,
+          boost: result.boost,
+        });
+      }
+    }
+    res.format({
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json({ bookResults }); // Send JSON response
+      },
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+        res.render("fruits", { bookResults }); // Render PUG template and send HTML response
+      },
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Internal server error" }); // Send JSON error response
+  }
+});
 
 //Start the connection to the database
 mongoose.connect("mongodb://127.0.0.1:27017/a1", {
@@ -126,7 +311,7 @@ mongoose.connect("mongodb://127.0.0.1:27017/a1", {
 //Get the default Mongoose connection (can then be shared across multiple files)
 let db = mongoose.connection;
 
-db.on("error", console.error.bind(console, "connection error:"));
+db.on("error", console.log.bind(console, "connection error:"));
 db.once("open", function () {
   // Confirmation of successful connection to the database.
   console.log("Connected to productsDB database.");
@@ -135,8 +320,8 @@ db.once("open", function () {
     console.log(`Server is running on http://localhost:${PORT}`);
   });
 
-  
   //fruitcrawler.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
   //bookcrawler.queue('https://books.toscrape.com/catalogue/shakespeares-sonnets_989/index.html');
-  populateIndex();
+  populateFruitIndex();
+  populateBookIndex();
 });

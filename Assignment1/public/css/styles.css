@@ -31,11 +31,6 @@ input::placeholder {
     font-size: 15px;  /* Adjust the value to your preference */
 }
 
-#register {
-    margin: 10px;
-    padding-left: 10px;
-}
-
 #home {
     text-align: center;
 }
@@ -46,38 +41,6 @@ input::placeholder {
     line-height: 1.6;
 }
 
-.product-header {
-    display: flex;
-    align-items: center;
-}
-
-.product-item {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start; /* To align items to the left; remove if not necessary */
-    margin-bottom: 20px; /* Spacing between each product's reviews set */
-}
-
-.product-item > p:first-child {
-    font-weight: bold; 
-    font-size: 20px; 
-    margin-bottom: 10px; 
-}
-
-.product-item > p:not(:first-child) {
-    margin: 5px 0; 
-    font-size: 15px;
-}
-span.stock-header, span.product-stock {
-    width: 50px; 
-    text-align: right;
-    margin-right: 20px;
-}
-
-.product-item {
-    margin-top: 5px;
-    
-}
 
 
 #main {
@@ -88,13 +51,6 @@ span.stock-header, span.product-stock {
 
 hr {
     border-top: 3px solid #0f2347;
-}
-
-.aid {
-    font-weight: regular;
-    color: #0f2347;
-    padding: 10px;
-    text-decoration: none;
 }
 
 .ahead {
@@ -151,15 +107,6 @@ button:hover {
 
 .middle {
     width: 65%;
-}
-
-#restaurant-select {
-    padding-bottom: 5px;
-}
-
-#form {
-    padding: 10px;
-    margin: 5px;
 }
 
 div#webpage-results {
