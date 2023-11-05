@@ -91,5 +91,11 @@ End Point Routes
         - Endpoint: /personal/:booktitle
         - Description: Displays detailed information about an individual book based on the provided title.
 
+Note to TA:
+- I changed the algorithm of requirement "If a valid limit parameter X is specified, your server MUST return X results, even if all documents have a score of 0 (return any X documents in this case). " after video has been uploaded
+- difference:
+    before: used to just get any fruit pages with keywords "<p>" and book with keyword "..more"
+    after: returned x random pages from db and formatted it with 0 score and boost value
 
 Video Demonstration
+https://mediaspace.carleton.ca/media/comp4601a1+Justine+Yap+101180098/1_c2rbq1vr
