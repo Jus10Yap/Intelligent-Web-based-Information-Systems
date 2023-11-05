@@ -1,5 +1,5 @@
-Justine Yap
-101180098
+Name: Justine Yap
+Student Number: 101180098
 
 Installation & Usage
     Prerequisites: Node.js, npm, and MongoDB installed
@@ -11,14 +11,17 @@ Installation & Usage
 Summary
 1. Web Crawler  [finished]
     a. Sites to Crawl: 
-        - Fruit example site: 1,000 pages.
-        - Another site of your choosing: 500-1,000 pages.
+        - Fruit example site: 1,000 pages 
+                https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html
+        - Book example site: 1,000 pages
+                https://books.toscrape.com/catalogue/shakespeares-sonnets_989/index.html
     b. Data Storage:
-        - Save the crawled data in a database for persistence. 
+        - Save the crawled data in a database for persistence
+                mongodb://127.0.0.1:27017/a1
     c. PageRank:
         - Implement the PageRank algorithm to calculate the rank of each page.
         - Store the PageRank values in the database. 
-2. RESTful Web Server
+2. RESTful Web Server [finished]
     a. Data Retrieval:
         Read data from the database.
         Perform indexing on the data.
@@ -40,7 +43,7 @@ Summary
         - Computed search score for the page.
         - PageRank of the page.
         - Link to view additional data about the page.
-4. JSON Response for Search Request
+4. JSON Response for Search Request [finished]
         - Provide a JSON string containing an array of search results, each with:
         - Group members' names.
         - URL of the original page.
@@ -53,6 +56,40 @@ Summary
             - The request should have a specific JSON format.
             - Use axios or a similar library for this.
 
+Server Configuration
+    The application is configured to run on the specified port (default 3000) and connect to a MongoDB database (mongodb://127.0.0.1:27017/a1)
+
+Crawler
+    Fruit Crawler:
+        - The algorithm for the Fruit Crawler is located in fruitcrawler.js.
+        - The module is imported with require("./public/js/fruitcrawler") in server.js.
+        - To crawl data, uncomment the line await fruitcrawler.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html"); in server.js.
+        - Run the server by entering npm run start in your terminal.
+        - Once the data is crawled and saved to the database, stop the server and comment out the queue line.
+        - Restart the server by entering npm run start in your terminal to begin queries.
+    Book Crawler:
+        - The algorithm for the Book Crawler is located in bookcrawler.js.
+        - The module is imported with require("./public/js/bookcrawler") in server.js.
+        - To crawl data, uncomment the line await bookcrawler.queue('https://books.toscrape.com/catalogue/shakespeares-sonnets_989/index.html'); in server.js.
+        - Run the server by entering npm run start in your terminal.
+        - Once the data is crawled and saved to the database, stop the server and comment out the queue line.
+        - Restart the server by entering npm run start in your terminal to begin queries.     
+End Point Routes
+    Home Page
+        - Endpoint: /
+        - Description: Renders the home page of the web application.
+    Fruits Search
+        - Endpoint: /fruits
+        - Description: Performs a search operation on a collection of fruits. Users can specify a query term, limit, and enable or disable boosting of search results based on page rank.
+    Individual Fruit Page
+        - Endpoint: /fruits/:title
+        - Description: Displays detailed information about an individual fruit based on the provided title.
+    Personal Books Search
+        - Endpoint: /personal
+        - Description: Performs a search operation on a collection of personal books. Users can specify a query term, limit, and enable or disable boosting of search results based on page rank.
+    Individual Book Page
+        - Endpoint: /personal/:booktitle
+        - Description: Displays detailed information about an individual book based on the provided title.
 
 
 Video Demonstration
