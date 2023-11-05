@@ -38,12 +38,11 @@ app.use(express.json());
 // The URL of the server where you want to register your search engine
 const registerUrl = 'http://134.117.130.17:3000/searchengines';
 
-//server's base URL
-const yourServerUrl = 'URL_for_your_server';
+
 
 // Define the request payload
 const requestData = {
-  request_url: yourServerUrl,
+  request_url: "http://134.117.130.183:3000",
 };
 
 //log requests received
@@ -165,12 +164,11 @@ app.get("/fruits", async (req, res) => {
         let title = fruit.url.split("/").pop().replace(".html", "");
         webpageResults.push({
           name: "Justine Yap",
-          id: result.ref,
           url: fruit.url,
-          title: title,
           score: result.score,
+          title: title,
           pageRank: fruit.pageRank,
-          boost: result.boost,
+          boost: result.boost
         });
       }
     }
@@ -230,7 +228,7 @@ app.get("/fruits/:title", async (req, res) => {
           title: title,
           incomingLinks: incomingLinks.map((link) => link.url),
           outgoingLinks: fruit.outgoingLinks,
-          wordFrequency: wordFrequency,
+          wordFrequency: wordFrequency
         });
       },
       "text/html": () => {
@@ -240,7 +238,7 @@ app.get("/fruits/:title", async (req, res) => {
           title: title,
           incomingLinks: incomingLinks.map((link) => link.url),
           outgoingLinks: fruit.outgoingLinks,
-          wordFrequency: wordFrequency,
+          wordFrequency: wordFrequency
         });
       },
       default: () => {
@@ -312,7 +310,7 @@ app.get("/personal", async (req, res) => {
           description: book.description,
           score: result.score,
           pageRank: book.pageRank,
-          boost: result.boost,
+          boost: result.boost
         });
       }
     }
@@ -370,7 +368,7 @@ app.get("/personal/:booktitle", async (req, res) => {
           title: book.title,
           description: book.description,
           outgoingLinks: outgoingLinks,
-          wordFrequency: wordFrequency,
+          wordFrequency: wordFrequency
         });
       },
       "text/html": () => {
@@ -392,21 +390,6 @@ app.get("/personal/:booktitle", async (req, res) => {
     res.status(500).send("Internal server error");
   }
 });
-
-// Send a PUT request to register your server
-axios
-  .put(registerUrl, requestData, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })
-  .then((response) => {
-    console.log(`Server registration successful. Status code: ${response.status}`);
-  })
-  .catch((error) => {
-    console.log(`Server registration failed:${error}`);
-  });
-
 //Start the connection to the database
 mongoose.connect("mongodb://127.0.0.1:27017/a1", {
   useNewUrlParser: true,
@@ -421,12 +404,39 @@ db.once("open", function () {
   // Confirmation of successful connection to the database.
   console.log("Connected to productsDB database.");
   // Starting the Express server.
-  app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+  app.listen(PORT, async () => {
+    console.log(`Server is running on "http://134.117.130.183:${PORT}"`);
+
+    //Run the Fruit Crawler
+    //await fruitcrawler.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
+    
+    //Run the Book Crawler
+    //await bookcrawler.queue('https://books.toscrape.com/catalogue/shakespeares-sonnets_989/index.html');
+
+    //Populate the Fruit Index
+    await populateFruitIndex();
+    
+    //Populate the Book Index
+    await populateBookIndex();
+
+
+    // Send a PUT request to register your server
+    axios
+      .put(registerUrl, requestData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      .then((response) => {
+        console.log(`Server registration successful. Status code: ${response.status}`);
+      })
+      .catch((error) => {
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          console.log(`Server registration failed. Status code: ${error.response.status}`);
+          console.log('Response data:', error.response.data);
+        } 
+      });
   });
 
-  //fruitcrawler.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
-  //bookcrawler.queue('https://books.toscrape.com/catalogue/shakespeares-sonnets_989/index.html');
-  populateFruitIndex();
-  populateBookIndex();
 });
