@@ -1,7 +1,7 @@
+//modules
 const Crawler = require("crawler");
-const url = require("url"); // Make sure to import any required modules at the top.
+const url = require("url"); 
 const Fruit = require("../../models/fruitModel");
-const elasticlunr = require("elasticlunr");
 const { Matrix } = require("ml-matrix");
 
 //Set to keep track of visited URLs.
@@ -46,14 +46,13 @@ const c = new Crawler({
           }
         });
 
-        const fruitTitle = $("title").text();
-        const fruitContent = $("body").text();
-
         const fruit = new Fruit({
           url: currentURL,
           content: $("body").html(),
           outgoingLinks: outgoing,
         });
+
+        //saving fruit onto database
         await fruit.save();
 
       } else {
@@ -64,22 +63,23 @@ const c = new Crawler({
   },
 });
 
+//updates the incoming links of all fruits
 async function calculateAndSaveIncomingLinks() {
-  // Fetch all fruits from the database
+  //get all fruits from the database
   const fruits = await Fruit.find();
 
-  // For each fruit, populate its incoming links
+  //populate incoming links of each fruit
   for (let currentfruit of fruits) {
     const incomingLinks = [];
 
-    // Loop through all fruits to see which ones link to the current fruit
+    //go through all fruits to see which ones link to the current fruit
     for (let fruit of fruits) {
       if (fruit.outgoingLinks.includes(currentfruit.url)) {
         incomingLinks.push(fruit.url);
       }
     }
 
-    // Update the current fruit's incomingLinks field in the database
+    //update the current fruit's incomingLinks field in the database
     currentfruit.incomingLinks = incomingLinks;
     await currentfruit.save();
   }
@@ -87,6 +87,7 @@ async function calculateAndSaveIncomingLinks() {
   console.log("Updated all fruits with incoming link URLs.");
 }
 
+//PAGERANK
 async function pageRank() {
   const alpha = 0.1; // Damping factor
   const threshold = 0.0001; // Convergence threshold
@@ -124,25 +125,25 @@ async function pageRank() {
       }
     }
   });
-  // Initialize the PageRank
+  //initialize the PageRank
   let x0 = Array(N).fill(1 / N);
   let diff = 1;
 
-  // compute the PageRank vector until convergence
+  //compute the PageRank vector until convergence
   while (diff > threshold) {
-    const prevMatrix = new Matrix([x0]); // Convert to matrix object
+    const prevMatrix = new Matrix([x0]); //convert to matrix object
 
-    // Compute the next PageRank vector using the transition matrix
+    //compute the next PageRank vector using the transition matrix
     x0 = M.map((row) =>
       row.reduce((i, val, index) => i + val * x0[index], 0)
     ).map((val) => (1 - alpha) * val + alpha / N); //multiply the resulting matrix by (1- 𝝰) then Add 𝝰/N to each entry of the resulting matrix
 
     const x0Matrix = new Matrix([x0]);
 
-    // Compute the difference matrix
+    //compute the difference matrix
     const diffMatrix = x0Matrix.sub(prevMatrix);
 
-    // Calculate the L2 norm
+    //calculate the L2 norm
     diff = diffMatrix.norm();
   }
 

@@ -35,12 +35,10 @@ app.use(express.static(path.join("public", "css")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// The URL of the server where you want to register your search engine
+// the URL of the server to register your search engine
 const registerUrl = 'http://134.117.130.17:3000/searchengines';
 
-
-
-// Define the request payload
+//request payload
 const requestData = {
   request_url: "http://134.117.130.183:3000",
 };
@@ -65,10 +63,10 @@ const fruitIndex = elasticlunr(function () {
 //populates fruit index
 async function populateFruitIndex() {
   try {
-    // Retrieve all fruits from the database
+    // retrieve all fruits from the database
     const fruits = await Fruit.find();
 
-    // Add each fruit to the index
+    // add each fruit to the index
     fruits.forEach((fruit) => {
       fruitIndex.addDoc({
         id: fruit._id.toString(), //ObjectID
@@ -83,20 +81,20 @@ async function populateFruitIndex() {
   }
 }
 
-//index for books
+// index for books
 const bookIndex = elasticlunr(function () {
   this.addField("title");
   this.addField("description");
   this.setRef("id");
 });
 
-//populates book index
+// populates book index
 async function populateBookIndex() {
   try {
-    // Retrieve all books from the database
+    // retrieve all books from the database
     const books = await Book.find();
 
-    // Add each book to the book index
+    // add each book to the book index
     books.forEach((book) => {
       bookIndex.addDoc({
         id: book._id.toString(), //ObjectID
@@ -112,7 +110,7 @@ async function populateBookIndex() {
 }
 
 // Get Handlers
-// GET Homepage: Renders the home page.
+// GET Homepage
 app.get(["/", "/home"], (req, res) => res.render("home"));
 
 // GET fruits
@@ -134,10 +132,15 @@ app.get("/fruits", async (req, res) => {
         .json({ error: "Query parameter 'limit' must be between 1 and 50" });
     }
 
-    // Search the index
+    // check if the book index is empty
+    if (fruitIndex.isEmpty) {
+      return res.status(404).json({ error: "Fruit index is empty" });
+    }
+    
+    // search the index
     const results = fruitIndex.search(query, { expand: true });
 
-    // Calculate and add boost values to the results
+    // calculate and add boost values to the results
     if (boost) {
       for (const result of results) {
         const fruit = await Fruit.findById(result.ref);
@@ -146,18 +149,18 @@ app.get("/fruits", async (req, res) => {
           result.boost = pageRankBoost; // Add the boost value to the result
         }
       }
-      // Sort the results by boost
+      // sort the results by boost
       results.sort((a, b) => {
         return b.boost - a.boost;
       });
     } else {
-      // Sort the results by score
+      // sort the results by score
       results.sort((a, b) => {
         return b.score - a.score;
       });
     }
 
-    // Fetch the fruits based on the search results
+    // fetch the fruits based on the search results
     for (const result of results.slice(0, limit)) {
       const fruit = await Fruit.findById(result.ref);
       if (fruit) {
@@ -192,26 +195,27 @@ app.get("/fruits", async (req, res) => {
   }
 });
 
+//GET fruit
 app.get("/fruits/:title", async (req, res) => {
   try {
     const partialUrl = req.params.title.slice(1);
     const fullUrl = `https://people.scs.carleton.ca/~davidmckenney/fruitgraph/${partialUrl}.html`;
 
-    // Find the fruit in the database based on the full URL
+    // find the fruit in the database based on the full URL
     const fruit = await Fruit.findOne({ url: fullUrl });
 
     if (!fruit) {
       return res.status(404).send("Fruit not found");
     }
 
-    // Find incoming links to the requested page
+    // find incoming links to the requested page
     const incomingLinks = await Fruit.find({ outgoingLinks: fullUrl }, "url");
 
-    // Use Cheerio to parse the HTML content and extract text
+    // use Cheerio to parse the HTML content and extract text
     const $ = cheerio.load(fruit.content);
     const textContent = $("body").text(); // Extract text content from the <body> element
 
-    // Split the text content into words and count word frequency
+    // split the text content into words and count word frequency
     const words = textContent.split(/\s+/).filter((word) => word.trim() !== ""); // Split and filter out empty strings (white spaces)
     const wordFrequency = {};
     for (const word of words) {
@@ -256,7 +260,7 @@ app.get("/personal", async (req, res) => {
   try {
     let bookResults = [];
     const query = req.query.q || "";
-    const boost = req.query.boost === "true"; // Check if boost is true
+    const boost = req.query.boost === "true"; // check if boost is true
     let limit = parseInt(req.query.limit);
 
     if (isNaN(limit)) {
@@ -269,15 +273,15 @@ app.get("/personal", async (req, res) => {
         .json({ error: "Query parameter 'limit' must be between 1 and 50" });
     }
 
-    // Check if the book index is empty
+    // check if the book index is empty
     if (bookIndex.isEmpty) {
       return res.status(404).json({ error: "Book index is empty" });
     }
 
-    // Search the book index
+    // search the book index
     const results = bookIndex.search(query, { expand: true });
 
-    // Calculate and add boost values to the results
+    // calculate and add boost values to the results
     if (boost) {
       for (const result of results) {
         const book = await Book.findById(result.ref);
@@ -287,18 +291,18 @@ app.get("/personal", async (req, res) => {
         }
       }
 
-      // Sort the results by boost
+      // sort the results by boost
       results.sort((a, b) => {
         return b.boost - a.boost;
       });
     } else {
-      // Sort the results by score
+      // sort the results by score
       results.sort((a, b) => {
         return b.score - a.score;
       });
     }
 
-    // Fetch the books based on the search results
+    // fetch the books based on the search results
     for (const result of results.slice(0, limit)) {
       const book = await Book.findById(result.ref);
       if (book) {
@@ -310,7 +314,7 @@ app.get("/personal", async (req, res) => {
           description: book.description,
           score: result.score,
           pageRank: book.pageRank,
-          boost: result.boost
+          boost: result.boost,
         });
       }
     }
@@ -333,26 +337,26 @@ app.get("/personal", async (req, res) => {
   }
 });
 
-// Route to handle /personal/:booktitle
+// GET book
 app.get("/personal/:booktitle", async (req, res) => {
   try {
     const bookTitle = req.params.booktitle.slice(1);
 
-    // Find the book in the database based on the title
+    // find the book in the database based on the title
     const book = await Book.findOne({ title: bookTitle });
 
     if (!book) {
       return res.status(404).send("Book not found");
     }
 
-    // Find outgoing links from the requested book
+    // find outgoing links from the requested book
     const outgoingLinks = book.outgoingLinks;
 
-    // Use Cheerio to parse the HTML content and extract text
+    // use Cheerio to parse the HTML content and extract text
     const $ = cheerio.load(book.description);
-    const textContent = $("body").text(); // Extract text content from the <body> element
+    const textContent = $("body").text(); 
 
-    // Split the text content into words and count word frequency
+    // split the text content into words and count word frequency
     const words = textContent.split(/\s+/).filter((word) => word.trim() !== ""); // Split and filter out empty strings (white spaces)
     const wordFrequency = {};
     for (const word of words) {
@@ -368,7 +372,7 @@ app.get("/personal/:booktitle", async (req, res) => {
           title: book.title,
           description: book.description,
           outgoingLinks: outgoingLinks,
-          wordFrequency: wordFrequency
+          wordFrequency: wordFrequency,
         });
       },
       "text/html": () => {
@@ -390,20 +394,20 @@ app.get("/personal/:booktitle", async (req, res) => {
     res.status(500).send("Internal server error");
   }
 });
-//Start the connection to the database
+//start the connection to the database
 mongoose.connect("mongodb://127.0.0.1:27017/a1", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
-//Get the default Mongoose connection (can then be shared across multiple files)
+//get the default Mongoose connection (can then be shared across multiple files)
 let db = mongoose.connection;
 
 db.on("error", console.log.bind(console, "connection error:"));
 db.once("open", function () {
-  // Confirmation of successful connection to the database.
+  // confirmation of successful connection to the database.
   console.log("Connected to productsDB database.");
-  // Starting the Express server.
+  // starting the Express server.
   app.listen(PORT, async () => {
     console.log(`Server is running on "http://134.117.130.183:${PORT}"`);
 
