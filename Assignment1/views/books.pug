@@ -26,8 +26,8 @@ html(lang="en")
             p.url #{result.url}
             p
               span Score: #{result.score.toFixed(15)}
-              if result.pageRank
-                | , PageRank: #{result.pageRank.toFixed(15)}
+              if result.pr
+                | , PageRank: #{result.pr.toFixed(15)}
               if result.boost
                 | , Boost: #{result.boost.toFixed(15)} 
             a(href=("/personal/:" + result.title)) view book here
