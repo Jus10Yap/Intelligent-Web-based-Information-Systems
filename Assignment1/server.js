@@ -138,7 +138,15 @@ app.get("/fruits", async (req, res) => {
     }
     
     // search the index
-    const results = fruitIndex.search(query, { expand: true });
+    let results = fruitIndex.search(query, { expand: true });
+
+    // If there are no search results and the limit is greater than 0, search for pages with a score close to 0
+    if (results.length === 0 && limit > 0) {
+      results = fruitIndex.search("<p>"); 
+    }
+
+    console.log(results.length);
+
 
     // calculate and add boost values to the results
     if (boost) {
@@ -170,7 +178,7 @@ app.get("/fruits", async (req, res) => {
           url: fruit.url,
           score: result.score,
           title: title,
-          pageRank: fruit.pageRank,
+          pr: fruit.pageRank,
           boost: result.boost
         });
       }
@@ -179,7 +187,7 @@ app.get("/fruits", async (req, res) => {
     res.format({
       "application/json": () => {
         res.set("Content-Type", "application/json");
-        res.json({ webpageResults }); // Send JSON response
+        res.json(webpageResults); // Send JSON response
       },
       "text/html": () => {
         res.set("Content-Type", "text/html");
@@ -279,7 +287,14 @@ app.get("/personal", async (req, res) => {
     }
 
     // search the book index
-    const results = bookIndex.search(query, { expand: true });
+    let results = bookIndex.search(query, { expand: true });
+
+    // If there are no search results and the limit is greater than 0, search for pages with a score close to 0
+    if (results.length === 0 && limit > 0) {
+      results = bookIndex.search("...more"); 
+    }
+
+    
 
     // calculate and add boost values to the results
     if (boost) {
@@ -313,7 +328,7 @@ app.get("/personal", async (req, res) => {
           title: book.title,
           description: book.description,
           score: result.score,
-          pageRank: book.pageRank,
+          pr: book.pageRank,
           boost: result.boost,
         });
       }
@@ -321,7 +336,7 @@ app.get("/personal", async (req, res) => {
     res.format({
       "application/json": () => {
         res.set("Content-Type", "application/json");
-        res.json({ bookResults }); // Send JSON response
+        res.json(bookResults); // Send JSON response
       },
       "text/html": () => {
         res.set("Content-Type", "text/html");
