@@ -136,53 +136,71 @@ app.get("/fruits", async (req, res) => {
     if (fruitIndex.isEmpty) {
       return res.status(404).json({ error: "Fruit index is empty" });
     }
-    
+
     // search the index
     let results = fruitIndex.search(query, { expand: true });
 
     // If there are no search results and the limit is greater than 0, search for pages with a score close to 0
     if (results.length === 0 && limit > 0) {
-      results = fruitIndex.search("<p>"); 
-    }
 
-    console.log(results.length);
+      // Retrieve the first `limit` fruits from the database
+      const fruits = await Fruit.find().limit(limit);
 
-
-    // calculate and add boost values to the results
-    if (boost) {
-      for (const result of results) {
-        const fruit = await Fruit.findById(result.ref);
-        if (fruit) {
-          const pageRankBoost = fruit.pageRank * result.score;
-          result.boost = pageRankBoost; // Add the boost value to the result
-        }
+      if (fruits.length === 0) {
+        return res.status(404).json({ error: "No fruits found in the database" });
       }
-      // sort the results by boost
-      results.sort((a, b) => {
-        return b.boost - a.boost;
-      });
-    } else {
-      // sort the results by score
-      results.sort((a, b) => {
-        return b.score - a.score;
-      });
-    }
 
-    // fetch the fruits based on the search results
-    for (const result of results.slice(0, limit)) {
-      const fruit = await Fruit.findById(result.ref);
-      if (fruit) {
+      // Prepare the search results based on the retrieved fruits
+      for (const fruit of fruits) {
         let title = fruit.url.split("/").pop().replace(".html", "");
         webpageResults.push({
           name: "Justine Yap",
           url: fruit.url,
-          score: result.score,
+          score: 0, // Score can be set to 0 for these results
           title: title,
           pr: fruit.pageRank,
-          boost: result.boost
+          boost: 0, // Boost can be set to 0 for these results
         });
       }
+    } else {
+      // calculate and add boost values to the results
+      if (boost) {
+        for (const result of results) {
+          const fruit = await Fruit.findById(result.ref);
+          if (fruit) {
+            const pageRankBoost = fruit.pageRank * result.score;
+            result.boost = pageRankBoost; // Add the boost value to the result
+          }
+        }
+        // sort the results by boost
+        results.sort((a, b) => {
+          return b.boost - a.boost;
+        });
+      } else {
+        // sort the results by score
+        results.sort((a, b) => {
+          return b.score - a.score;
+        });
+      }
+
+      // fetch the fruits based on the search results
+      for (const result of results.slice(0, limit)) {
+        const fruit = await Fruit.findById(result.ref);
+        if (fruit) {
+          let title = fruit.url.split("/").pop().replace(".html", "");
+          webpageResults.push({
+            name: "Justine Yap",
+            url: fruit.url,
+            score: result.score,
+            title: title,
+            pr: fruit.pageRank,
+            boost: result.boost
+          });
+        }
+      }
     }
+
+
 
     res.format({
       "application/json": () => {
@@ -291,46 +309,65 @@ app.get("/personal", async (req, res) => {
 
     // If there are no search results and the limit is greater than 0, search for pages with a score close to 0
     if (results.length === 0 && limit > 0) {
-      results = bookIndex.search("...more"); 
-    }
+      // Retrieve the first `limit` books from the database
+      const books = await Book.find().limit(limit);
 
-    
-
-    // calculate and add boost values to the results
-    if (boost) {
-      for (const result of results) {
-        const book = await Book.findById(result.ref);
-        if (book) {
-          const pageRankBoost = book.pageRank * result.score;
-          result.boost = pageRankBoost; // Add the boost value to the result
-        }
+      if (books.length === 0) {
+        return res.status(404).json({ error: "No books found in the database" });
       }
 
-      // sort the results by boost
-      results.sort((a, b) => {
-        return b.boost - a.boost;
-      });
-    } else {
-      // sort the results by score
-      results.sort((a, b) => {
-        return b.score - a.score;
-      });
-    }
-
-    // fetch the books based on the search results
-    for (const result of results.slice(0, limit)) {
-      const book = await Book.findById(result.ref);
-      if (book) {
+      // Prepare the search results based on the retrieved fruits
+      for (const book of books) {
         bookResults.push({
           name: "Justine Yap",
-          id: result.ref,
+          id: books.ref,
           url: book.url,
           title: book.title,
           description: book.description,
-          score: result.score,
+          score: 0,
           pr: book.pageRank,
-          boost: result.boost,
+          boost: 0,
+
         });
+      }
+    } else {
+
+      // calculate and add boost values to the results
+      if (boost) {
+        for (const result of results) {
+          const book = await Book.findById(result.ref);
+          if (book) {
+            const pageRankBoost = book.pageRank * result.score;
+            result.boost = pageRankBoost; // Add the boost value to the result
+          }
+        }
+
+        // sort the results by boost
+        results.sort((a, b) => {
+          return b.boost - a.boost;
+        });
+      } else {
+        // sort the results by score
+        results.sort((a, b) => {
+          return b.score - a.score;
+        });
+      }
+
+      // fetch the books based on the search results
+      for (const result of results.slice(0, limit)) {
+        const book = await Book.findById(result.ref);
+        if (book) {
+          bookResults.push({
+            name: "Justine Yap",
+            id: result.ref,
+            url: book.url,
+            title: book.title,
+            description: book.description,
+            score: result.score,
+            pr: book.pageRank,
+            boost: result.boost,
+          });
+        }
       }
     }
     res.format({
@@ -369,7 +406,7 @@ app.get("/personal/:booktitle", async (req, res) => {
 
     // use Cheerio to parse the HTML content and extract text
     const $ = cheerio.load(book.description);
-    const textContent = $("body").text(); 
+    const textContent = $("body").text();
 
     // split the text content into words and count word frequency
     const words = textContent.split(/\s+/).filter((word) => word.trim() !== ""); // Split and filter out empty strings (white spaces)
@@ -428,13 +465,13 @@ db.once("open", function () {
 
     //Run the Fruit Crawler
     //await fruitcrawler.queue("https://people.scs.carleton.ca/~davidmckenney/fruitgraph/N-0.html");
-    
+
     //Run the Book Crawler
     //await bookcrawler.queue('https://books.toscrape.com/catalogue/shakespeares-sonnets_989/index.html');
 
     //Populate the Fruit Index
     await populateFruitIndex();
-    
+
     //Populate the Book Index
     await populateBookIndex();
 
@@ -454,7 +491,7 @@ db.once("open", function () {
           // The request was made and the server responded with a status code
           console.log(`Server registration failed. Status code: ${error.response.status}`);
           console.log('Response data:', error.response.data);
-        } 
+        }
       });
   });
 
