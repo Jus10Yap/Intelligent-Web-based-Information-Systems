@@ -12,43 +12,47 @@ const MAX_PAGES = 1000;
 
 //CRAWLER
 const p = new Crawler({
-    maxConnections: 10, // use this for parallel, rateLimit for individual
+    maxConnections: 10,
     callback: async function (error, res, done) {
         if (error) {
             console.log(error);
         } else {
             const currentURL = res.options.uri;
-        if (!visitedURLs.has(currentURL) && pageCount < MAX_PAGES) {
-            visitedURLs.add(currentURL);
-            const $ = res.$;
 
-            const bookTitle = $("h1").text();
-            const bookDescription = $('meta[name="description"]').attr('content') || "";
-            
-            const relativeLinks = $("a[href]").map(function() {
-                return url.resolve(res.options.uri, $(this).attr('href'));
-            }).get();
+            if (!visitedURLs.has(currentURL) && pageCount < MAX_PAGES) {
+                visitedURLs.add(currentURL);
+                const $ = res.$;
 
+                const bookTitle = $("h1").text();
+                const bookDescription = $('meta[name="description"]').attr('content') || "";
 
-            
-            const book = new Book({
-                url: currentURL,
-                title: bookTitle,
-                description: bookDescription,
-                outgoingLinks: relativeLinks
-            });
+                const relativeLinks = new Set(); // Use a Set to store unique links
 
-            await book.save();
+                $("a[href]").each(function () {
+                    const link = url.resolve(res.options.uri, $(this).attr('href'));
+                    relativeLinks.add(link);
+                });
 
-            pageCount++;
+                const uniqueLinks = Array.from(relativeLinks); // Convert Set to an array
 
-            // Queue only the book links for further crawling.
-            // Assuming that all books have a common URL pattern.
-            relativeLinks.forEach(link => {
-                if (!visitedURLs.has(link) && pageCount < MAX_PAGES) {
-                    p.queue(link);
-                }
-            });
+                const book = new Book({
+                    url: currentURL,
+                    title: bookTitle,
+                    description: bookDescription,
+                    outgoingLinks: uniqueLinks,
+                });
+
+                await book.save();
+
+                pageCount++;
+
+                // Queue only the book links for further crawling.
+                // Assuming that all books have a common URL pattern.
+                uniqueLinks.forEach(link => {
+                    if (!visitedURLs.has(link) && pageCount < MAX_PAGES) {
+                        p.queue(link);
+                    }
+                });
             } else {
                 console.log(`Skipping already visited URL: ${currentURL}`);
             }
@@ -56,6 +60,7 @@ const p = new Crawler({
         done();
     },
 });
+
 
 async function pageRank() {
     const alpha = 0.1; // Damping factor

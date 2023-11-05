@@ -15,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 const mongoose = require("mongoose");
 const elasticlunr = require("elasticlunr");
 const cheerio = require("cheerio");
+const axios = require('axios');
 
 //crawler files
 const fruitcrawler = require("./public/js/fruitcrawler");
@@ -33,6 +34,17 @@ app.use(express.static(path.join("public", "images")));
 app.use(express.static(path.join("public", "css")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// The URL of the server where you want to register your search engine
+const registerUrl = 'http://134.117.130.17:3000/searchengines';
+
+//server's base URL
+const yourServerUrl = 'URL_for_your_server';
+
+// Define the request payload
+const requestData = {
+  request_url: yourServerUrl,
+};
 
 //log requests received
 app.use(function (req, res, next) {
@@ -110,7 +122,11 @@ app.get("/fruits", async (req, res) => {
     let webpageResults = [];
     const query = req.query.q || "";
     const boost = req.query.boost === "true"; // Check if boost is true
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 50); // Ensure limit is between 1 and 50, default to 10
+    let limit = parseInt(req.query.limit);
+
+    if (isNaN(limit)) {
+      limit = 10; //setting default to 10 if no limit param
+    }
 
     if (limit < 1 || limit > 50) {
       //edge case where `limit` is not within 1-50
@@ -127,21 +143,20 @@ app.get("/fruits", async (req, res) => {
       for (const result of results) {
         const fruit = await Fruit.findById(result.ref);
         if (fruit) {
-          // Implement the boost calculation logic here
-          // For example, using PageRank as boost
-          const pageRankBoost = fruit.pageRank || 0;
+          const pageRankBoost = fruit.pageRank * result.score;
           result.boost = pageRankBoost; // Add the boost value to the result
         }
       }
+      // Sort the results by boost
+      results.sort((a, b) => {
+        return b.boost - a.boost;
+      });
+    } else {
+      // Sort the results by score
+      results.sort((a, b) => {
+        return b.score - a.score;
+      });
     }
-
-    // Sort the results by a combination of score and boost
-    results.sort((a, b) => {
-      // Consider both PageRank boost and search score
-      const boostA = a.boost || 0;
-      const boostB = b.boost || 0;
-      return b.score + boostB - (a.score + boostA);
-    });
 
     // Fetch the fruits based on the search results
     for (const result of results.slice(0, limit)) {
@@ -149,6 +164,7 @@ app.get("/fruits", async (req, res) => {
       if (fruit) {
         let title = fruit.url.split("/").pop().replace(".html", "");
         webpageResults.push({
+          name: "Justine Yap",
           id: result.ref,
           url: fruit.url,
           title: title,
@@ -178,9 +194,9 @@ app.get("/fruits", async (req, res) => {
   }
 });
 
-app.get("/fruits/:url", async (req, res) => {
+app.get("/fruits/:title", async (req, res) => {
   try {
-    const partialUrl = req.params.url.slice(1);
+    const partialUrl = req.params.title.slice(1);
     const fullUrl = `https://people.scs.carleton.ca/~davidmckenney/fruitgraph/${partialUrl}.html`;
 
     // Find the fruit in the database based on the full URL
@@ -201,7 +217,6 @@ app.get("/fruits/:url", async (req, res) => {
     const words = textContent.split(/\s+/).filter((word) => word.trim() !== ""); // Split and filter out empty strings (white spaces)
     const wordFrequency = {};
     for (const word of words) {
-      console.log(word);
       wordFrequency[word] = (wordFrequency[word] || 0) + 1;
     }
     let title = fruit.url.split("/").pop().replace(".html", "");
@@ -210,6 +225,7 @@ app.get("/fruits/:url", async (req, res) => {
       "application/json": () => {
         res.set("Content-Type", "application/json");
         res.json({
+          name: "Justine Yap",
           url: fruit.url,
           title: title,
           incomingLinks: incomingLinks.map((link) => link.url),
@@ -243,7 +259,22 @@ app.get("/personal", async (req, res) => {
     let bookResults = [];
     const query = req.query.q || "";
     const boost = req.query.boost === "true"; // Check if boost is true
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 50); // Ensure limit is between 1 and 50, default to 10
+    let limit = parseInt(req.query.limit);
+
+    if (isNaN(limit)) {
+      limit = 10;
+    }
+    if (limit < 1 || limit > 50) {
+      //edge case where `limit` is not within 1-50
+      return res
+        .status(400)
+        .json({ error: "Query parameter 'limit' must be between 1 and 50" });
+    }
+
+    // Check if the book index is empty
+    if (bookIndex.isEmpty) {
+      return res.status(404).json({ error: "Book index is empty" });
+    }
 
     // Search the book index
     const results = bookIndex.search(query, { expand: true });
@@ -253,26 +284,28 @@ app.get("/personal", async (req, res) => {
       for (const result of results) {
         const book = await Book.findById(result.ref);
         if (book) {
-          // Implement the boost calculation logic here (e.g., using PageRank)
-          const pageRankBoost = book.pageRank || 0;
+          const pageRankBoost = book.pageRank * result.score;
           result.boost = pageRankBoost; // Add the boost value to the result
         }
       }
-    }
 
-    // Sort the results by a combination of score and boost
-    results.sort((a, b) => {
-      // Consider both PageRank boost and search score
-      const boostA = a.boost || 0;
-      const boostB = b.boost || 0;
-      return b.score + boostB - (a.score + boostA);
-    });
+      // Sort the results by boost
+      results.sort((a, b) => {
+        return b.boost - a.boost;
+      });
+    } else {
+      // Sort the results by score
+      results.sort((a, b) => {
+        return b.score - a.score;
+      });
+    }
 
     // Fetch the books based on the search results
     for (const result of results.slice(0, limit)) {
       const book = await Book.findById(result.ref);
       if (book) {
         bookResults.push({
+          name: "Justine Yap",
           id: result.ref,
           url: book.url,
           title: book.title,
@@ -290,7 +323,7 @@ app.get("/personal", async (req, res) => {
       },
       "text/html": () => {
         res.set("Content-Type", "text/html");
-        res.render("fruits", { bookResults }); // Render PUG template and send HTML response
+        res.render("books", { bookResults }); // Render PUG template and send HTML response
       },
       default: () => {
         res.status(406).send("Not acceptable");
@@ -301,6 +334,78 @@ app.get("/personal", async (req, res) => {
     res.status(500).json({ error: "Internal server error" }); // Send JSON error response
   }
 });
+
+// Route to handle /personal/:booktitle
+app.get("/personal/:booktitle", async (req, res) => {
+  try {
+    const bookTitle = req.params.booktitle.slice(1);
+
+    // Find the book in the database based on the title
+    const book = await Book.findOne({ title: bookTitle });
+
+    if (!book) {
+      return res.status(404).send("Book not found");
+    }
+
+    // Find outgoing links from the requested book
+    const outgoingLinks = book.outgoingLinks;
+
+    // Use Cheerio to parse the HTML content and extract text
+    const $ = cheerio.load(book.description);
+    const textContent = $("body").text(); // Extract text content from the <body> element
+
+    // Split the text content into words and count word frequency
+    const words = textContent.split(/\s+/).filter((word) => word.trim() !== ""); // Split and filter out empty strings (white spaces)
+    const wordFrequency = {};
+    for (const word of words) {
+      wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+    }
+
+    res.format({
+      "application/json": () => {
+        res.set("Content-Type", "application/json");
+        res.json({
+          name: "Justine Yap",
+          url: book.url,
+          title: book.title,
+          description: book.description,
+          outgoingLinks: outgoingLinks,
+          wordFrequency: wordFrequency,
+        });
+      },
+      "text/html": () => {
+        res.set("Content-Type", "text/html");
+        res.render("book", {
+          url: book.url,
+          title: book.title,
+          description: book.description,
+          outgoingLinks: outgoingLinks,
+          wordFrequency: wordFrequency,
+        });
+      },
+      default: () => {
+        res.status(406).send("Not acceptable");
+      },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send("Internal server error");
+  }
+});
+
+// Send a PUT request to register your server
+axios
+  .put(registerUrl, requestData, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+  .then((response) => {
+    console.log(`Server registration successful. Status code: ${response.status}`);
+  })
+  .catch((error) => {
+    console.log(`Server registration failed:${error}`);
+  });
 
 //Start the connection to the database
 mongoose.connect("mongodb://127.0.0.1:27017/a1", {

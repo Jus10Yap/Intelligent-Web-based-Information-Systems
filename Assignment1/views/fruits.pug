@@ -22,8 +22,7 @@ html(lang="en")
       if webpageResults && webpageResults.length
         each result in webpageResults
           div.webpage-item
-            a(href=("/fruits/" + result.title))
-              h3= result.title
+            h3 #{result.title}
             p.url= result.url
             p
               span Score: #{result.score.toFixed(15)}
@@ -31,5 +30,6 @@ html(lang="en")
                 | , PageRank: #{result.pageRank.toFixed(15)}
               if result.boost
                 | , Boost: #{result.boost.toFixed(15)}
+            a(href=("/fruits/:" + result.title)) view fruit here
       else
         p No web pages match your search.

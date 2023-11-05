@@ -1,0 +1,35 @@
+html(lang="en")
+  head
+    meta(charset="UTF-8")
+    meta(http-equiv="X-UA-Compatible", content="IE=edge")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0")
+    link(rel="stylesheet" href="/css/styles.css")
+    title #{title}
+
+  body
+    include ./header
+
+    div#book-details
+      h2 Book Details
+      p URL: #{url}
+      p Title: #{title}
+
+      if outgoingLinks.length
+        h3 Outgoing Links
+        ul
+          each link in outgoingLinks
+            li
+              a(href=link)= link
+      else
+        p No outgoing links from this page.
+
+      if wordFrequency && Object.keys(wordFrequency).length
+        h3 Word Frequency
+        ul
+          each count, word in wordFrequency
+            li
+              | "#{word}" occurred #{count} time(s)
+      else
+        p No word frequency data available.
+
+
