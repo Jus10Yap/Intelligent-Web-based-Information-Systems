@@ -159,7 +159,6 @@ app.get("/fruits", async (req, res) => {
           score: 0, // Score can be set to 0 for these results
           title: title,
           pr: fruit.pageRank,
-          boost: 0, // Boost can be set to 0 for these results
         });
       }
     } else {
@@ -194,7 +193,7 @@ app.get("/fruits", async (req, res) => {
             score: result.score,
             title: title,
             pr: fruit.pageRank,
-            boost: result.boost
+            boost: result.boost,
           });
         }
       }
@@ -320,14 +319,10 @@ app.get("/personal", async (req, res) => {
       for (const book of books) {
         bookResults.push({
           name: "Justine Yap",
-          id: books.ref,
           url: book.url,
-          title: book.title,
-          description: book.description,
           score: 0,
+          title: book.title,
           pr: book.pageRank,
-          boost: 0,
-
         });
       }
     } else {
@@ -359,10 +354,8 @@ app.get("/personal", async (req, res) => {
         if (book) {
           bookResults.push({
             name: "Justine Yap",
-            id: result.ref,
             url: book.url,
             title: book.title,
-            description: book.description,
             score: result.score,
             pr: book.pageRank,
             boost: result.boost,
