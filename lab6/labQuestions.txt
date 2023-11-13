@@ -1,0 +1,19 @@
+1. The similarity calculation between two users indeed involves finding the set of products for which both users have provided ratings. In the code provided, this is handled in the pearsonCorrelation function. 
+The code iterates through the ratings of both users and only considers pairs of ratings where both users have provided ratings for the same product. This is achieved with the following condition:
+    if (user1[i] !== -1 && user2[i] !== -1) {
+    // Calculate the similarity for this pair of ratings
+    }
+This condition ensures that the similarity calculation only includes products that both users have rated. 
+It avoids considering products that are missing ratings for one or both users.
+
+2.
+
+Precomputing user means: Instead of calculating the mean of non-missing ratings for each user every time it's needed, the code precomputes the user means and stores them in the mean1 and mean2 variables. This avoids redundant calculations for the mean of ratings for each user.
+
+Precomputing product means: A similar approach is taken for computing the mean of product ratings by storing the means for each product.
+
+Reducing the number of Pearson correlation calculations: The code calculates Pearson correlations for all pairs of users. However, it can be optimized by only computing correlations for pairs of users who have at least one product rated in common. This way, the similarity calculations are not repeated unnecessarily.
+
+Using a neighborhood size parameter: The code allows you to set the neighborhood size using the neighborhoodSize variable. This parameter can be adjusted to control the number of nearest neighbors considered in the prediction, potentially reducing the number of calculations.
+
+Avoiding division by zero: The code includes checks to avoid division by zero when calculating the Pearson correlation. If the denominator is zero (indicating no variance), the correlation is set to zero.

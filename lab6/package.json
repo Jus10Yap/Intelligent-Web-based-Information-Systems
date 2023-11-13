@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "name": "lab6",
+  "version": "1.0.0",
+  "description": "COMP4601 Lab 6 Submission",
+  "main": "server.js",
+  "devDependencies": {},
+  "author": "Justine Yap",
+  "license": "ISC"
+}

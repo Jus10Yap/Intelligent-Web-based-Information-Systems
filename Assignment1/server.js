@@ -476,7 +476,7 @@ db.once("open", function () {
     await populateBookIndex();
 
 
-    // Send a PUT request to register your server
+    //Send a PUT request to register your server
     axios
       .put(registerUrl, requestData, {
         headers: {
