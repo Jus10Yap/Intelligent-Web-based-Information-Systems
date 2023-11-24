@@ -1,0 +1,15 @@
+{
+  "name": "lab8",
+  "version": "1.0.0",
+  "description": "lab 8 submission",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "Justine Yap",
+  "license": "ISC",
+  "dependencies": {
+    "ml-matrix": "^6.10.8"
+  }
+}
