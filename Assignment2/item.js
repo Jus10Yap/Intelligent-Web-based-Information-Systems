@@ -1,7 +1,7 @@
 console.time("wholeCode");
 const fs = require("fs");
 
-const filename = "./testFiles/parsed-data-trimmed.txt";
+const filename = "./testFiles/assignment2-data.txt";
 const data = fs.readFileSync(filename, "utf8").split("\n");
 const [numUsers, numItems] = data[0].split(" ").map(Number);
 const users = data[1].split(" ");
@@ -13,7 +13,9 @@ const userRatings = data
   .slice(3, 3 + numUsers)
   .map((row) => row.split(" ").map(Number));
 
-const defaultNeighborhoodSize = 5;
+const defaultNeighborhoodSize = 10;
+const itemThreshold = 25;
+
 
 const userItemMatrix = userRatings.map((row) => [...row]);
 const ratingsMatrix = userRatings.map((row) => [...row]);
@@ -77,7 +79,8 @@ function adjustedCosineSimilarity(item1, item2, ratings, commonRatings) {
     similarityCache.set(key, similarity);
 
     return similarity;
-  } else {
+  } 
+  else {
     return 0;
   }
 }
@@ -179,12 +182,6 @@ function findKNeighbors(
       continue; // Skip the same item
     }
 
-    const userRating = ratingsMatrix[userIndex][itemIndex];
-
-    if (userRating < 0 || userRating > 5) {
-      continue; // Skip items with no ratings during prediction
-    }
-
     
 
     const otherItem = ratingsMatrix.map((row) => row[otherItemIndex]);
@@ -195,12 +192,17 @@ function findKNeighbors(
       continue;
     }
 
+    if (commonRatings.size < itemThreshold) {
+      continue; // Skip items that don't meet the threshold
+    }
+
     const similarity = adjustedCosineSimilarity(
       item,
       otherItem,
       ratingsMatrix,
       commonRatings
     );
+
 
     // Check if the similarity is 1
     if (similarity === 1) {
@@ -211,8 +213,8 @@ function findKNeighbors(
       }
     }
 
-    
-    if (similarity > 0 && similarity <=1) {
+    //no negative similarities
+    if (similarity > 0) {
       itemSimilarities.insert({ index: otherItemIndex, similarity });
     } else {
       continue;
@@ -272,9 +274,9 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
       );
 
       // Output information about the prediction
-      console.log(`Predicting for user: ${users[userIndex]}`);
-      console.log(`Predicting for item: ${items[itemIndex]}`);
-      console.log(`Found ${kNeighbors.length} valid neighbors:`);
+      // console.log(`Predicting for user: ${users[userIndex]}`);
+      // console.log(`Predicting for item: ${items[itemIndex]}`);
+      // console.log(`Found ${kNeighbors.length} valid neighbors:`);
 
       if (kNeighbors.length === 0) {
         totalNoValidNeighbors++;
@@ -290,7 +292,7 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
           const neighborIndex = neighbor.index;
           const similarity = neighbor.similarity;
           const neighborRating = ratingsMatrix[userIndex][neighborIndex];
-          console.log(`${items[neighborIndex]} sim=${similarity}`);
+          // console.log(`${items[neighborIndex]} sim=${similarity}`);
           // Skip items with no ratings during prediction
           prediction += similarity * neighborRating;
           totalSimilarity += similarity;
@@ -302,9 +304,9 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
         totalNeighborsUsed += kNeighbors.length;
       }
 
-      console.log(
-        `Initial predicted value: ${userItemMatrix[userIndex][itemIndex]}`
-      );
+      // console.log(
+      //   `Initial predicted value: ${userItemMatrix[userIndex][itemIndex]}`
+      // );
       // Handle extreme cases for the fallback prediction
       if (userItemMatrix[userIndex][itemIndex] < 1) {
         totalUnderPredictions++;
@@ -320,10 +322,10 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
       );
       totalAbsoluteError += absoluteError;
 
-      console.log(
-        `Final predicted value: ${userItemMatrix[userIndex][itemIndex]}`
-      );
-      console.log();
+      // console.log(
+      //   `Final predicted value: ${userItemMatrix[userIndex][itemIndex]}`
+      // );
+      // console.log();
 
       // Restore the test rating after prediction for the next iteration
       ratingsMatrix[userIndex][itemIndex] = testRating;

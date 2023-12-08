@@ -1,0 +1,19 @@
+{
+  "name": "assignment2",
+  "version": "1.0.0",
+  "description": "COMP4601A Fall 2023 Assignment 2 Submission",
+  "main": "item.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "item": "node item.js",
+    "itemThres": "node itemThres.js",
+    "nitem": "node negativeItem.js",
+    "nitemThres": "node negativeItemThres.js",
+    "user": "node user.js",
+    "userThres": "node userThres.js",
+    "nuser": "node negativeUser.js",
+    "nuserThres": "node negativeUserThres.js"
+  },
+  "author": "Justine Yap",
+  "license": "ISC"
+}

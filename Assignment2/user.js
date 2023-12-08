@@ -1,26 +1,24 @@
-console.time("wholeCode");//start timer for code
+console.time("wholeCode"); //start timer for code
 const fs = require("fs");
 
-const filename = "./testFiles/parsed-data-trimmed.txt";
+const filename = "./testFiles/assignment2-data.txt";
 const data = fs.readFileSync(filename, "utf8").split("\n");
 //parse data from file
 const [numUsers, numItems] = data[0].split(" ").map(Number);
 const users = data[1].split(" ");
 const items = data[2].split(" ");
 
-
 const userRatings = data
   .slice(3, 3 + numUsers)
   .map((row) => row.split(" ").map(Number));
 
-const defaultNeighborhoodSize = 5;
+const defaultNeighborhoodSize = 10;
+const userThreshold = 50;
 
 const userItemMatrix = userRatings.map((row) => [...row]);
 const ratingsMatrix = userItemMatrix;
 
-
 function pearsonCorrelation(user1, user2) {
-
   const mean1 =
     user1.reduce((acc, rating) => (rating !== 0 ? acc + rating : acc), 0) /
     user1.filter((rating) => rating !== 0).length;
@@ -70,19 +68,28 @@ function findKNeighborsUserBased(
   const userSimilarities = new MaxHeap();
   let similarityOneCount = 0;
 
-  for (
-    let otherUserIndex = 0;
-    otherUserIndex < numUsers;
-    otherUserIndex++
-  ) {
+  for (let otherUserIndex = 0; otherUserIndex < numUsers; otherUserIndex++) {
+    // if (
+    //   ratingsMatrix[otherUserIndex].filter((rating) => rating !== 0).length <
+    //   userThreshold
+    // ) {
+    //   continue;
+    // }
     const neighborRating = ratingsMatrix[otherUserIndex][itemIndex];
 
-    if (neighborRating === 0 || neighborRating < 0 || neighborRating > 5 || otherUserIndex === userIndex) {
+    if (
+      neighborRating === 0 ||
+      neighborRating < 0 ||
+      neighborRating > 5 ||
+      otherUserIndex === userIndex
+    ) {
       continue; //skip users with no ratings during prediction or the current user
     }
 
     const otherUser = ratingsMatrix[otherUserIndex];
     const similarity = pearsonCorrelation(user, otherUser);
+
+   
 
     // Check if the similarity is 1
     if (similarity === 1) {
@@ -100,7 +107,11 @@ function findKNeighborsUserBased(
 
   //extract top-k similarities from the max heap
   const topSimilarities = [];
-  for (let i = 0; i < neighborhoodSize && userSimilarities.heap.length > 0; i++) {
+  for (
+    let i = 0;
+    i < neighborhoodSize && userSimilarities.heap.length > 0;
+    i++
+  ) {
     topSimilarities.push(userSimilarities.extractMax());
   }
 
@@ -136,11 +147,16 @@ class MaxHeap {
     while (currentIndex > 0) {
       const parentIndex = Math.floor((currentIndex - 1) / 2);
 
-      if (this.heap[parentIndex].similarity >= this.heap[currentIndex].similarity) {
+      if (
+        this.heap[parentIndex].similarity >= this.heap[currentIndex].similarity
+      ) {
         break;
       }
 
-      [this.heap[parentIndex], this.heap[currentIndex]] = [this.heap[currentIndex], this.heap[parentIndex]];
+      [this.heap[parentIndex], this.heap[currentIndex]] = [
+        this.heap[currentIndex],
+        this.heap[parentIndex],
+      ];
       currentIndex = parentIndex;
     }
   }
@@ -153,11 +169,17 @@ class MaxHeap {
       const rightChildIndex = 2 * currentIndex + 2;
       let nextIndex = currentIndex;
 
-      if (leftChildIndex < this.heap.length && this.heap[leftChildIndex].similarity > this.heap[nextIndex].similarity) {
+      if (
+        leftChildIndex < this.heap.length &&
+        this.heap[leftChildIndex].similarity > this.heap[nextIndex].similarity
+      ) {
         nextIndex = leftChildIndex;
       }
 
-      if (rightChildIndex < this.heap.length && this.heap[rightChildIndex].similarity > this.heap[nextIndex].similarity) {
+      if (
+        rightChildIndex < this.heap.length &&
+        this.heap[rightChildIndex].similarity > this.heap[nextIndex].similarity
+      ) {
         nextIndex = rightChildIndex;
       }
 
@@ -165,13 +187,14 @@ class MaxHeap {
         break;
       }
 
-      [this.heap[currentIndex], this.heap[nextIndex]] = [this.heap[nextIndex], this.heap[currentIndex]];
+      [this.heap[currentIndex], this.heap[nextIndex]] = [
+        this.heap[nextIndex],
+        this.heap[currentIndex],
+      ];
       currentIndex = nextIndex;
     }
   }
 }
-
-
 
 let totalAbsoluteError = 0;
 let totalPredictions = 0;
@@ -186,11 +209,7 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
     const testRating = ratingsMatrix[userIndex][itemIndex];
 
     //invalid current rating
-    if (
-      testRating <= 0 ||
-      testRating > 5 ||
-      isNaN(testRating)
-    ) {
+    if (testRating <= 0 || testRating > 5 || isNaN(testRating)) {
       continue;
     }
 
@@ -212,14 +231,13 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
       );
 
       //output information about the prediction per user/item
-      console.log(`Predicting for user: ${users[userIndex]}`);
-      console.log(`Predicting for item: ${items[itemIndex]}`);
-      console.log(`Found ${kNeighbors.length} valid neighbors:`);
+      // console.log(`Predicting for user: ${users[userIndex]}`);
+      // console.log(`Predicting for item: ${items[itemIndex]}`);
+      // console.log(`Found ${kNeighbors.length} valid neighbors:`);
 
-      const userMean = user.reduce(
-        (acc, rating) => (rating !== 0 ? acc + rating : acc),
-        0
-      ) / user.filter((rating) => rating !== 0).length;
+      const userMean =
+        user.reduce((acc, rating) => (rating !== 0 ? acc + rating : acc), 0) /
+        user.filter((rating) => rating !== 0).length;
 
       //no valid neighbors
       if (kNeighbors.length === 0) {
@@ -229,33 +247,33 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
       else {
         let prediction = 0;
         let totalSimilarity = 0;
-    
+
         for (const neighbor of kNeighbors) {
           const neighborIndex = neighbor.index;
           const similarity = neighbor.similarity;
-      
+
           const neighborRating = ratingsMatrix[neighborIndex][itemIndex];
           const neighborMean =
             ratingsMatrix[neighborIndex].reduce(
               (acc, rating) => (rating !== 0 ? acc + rating : acc),
               0
             ) /
-            ratingsMatrix[neighborIndex].filter((rating) => rating !== 0).length;
-      
+            ratingsMatrix[neighborIndex].filter((rating) => rating !== 0)
+              .length;
+
           prediction += similarity * (neighborRating - neighborMean);
           totalSimilarity += parseFloat(similarity); // Use absolute similarity for weighting
         }
-      
-       
+
         prediction = userMean + prediction / totalSimilarity;
-      
+
         userItemMatrix[userIndex][itemIndex] = prediction;
         totalNeighborsUsed += kNeighbors.length;
       }
 
-      console.log(
-        `Initial predicted value: ${userItemMatrix[userIndex][itemIndex]}`
-      );
+      // console.log(
+      //   `Initial predicted value: ${userItemMatrix[userIndex][itemIndex]}`
+      // );
 
       // Handle extreme cases for prediction
       if (userItemMatrix[userIndex][itemIndex] < 1) {
@@ -272,10 +290,10 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
       );
       totalAbsoluteError += absoluteError;
 
-      console.log(
-        `Final predicted value: ${userItemMatrix[userIndex][itemIndex]}`
-      );
-      console.log();
+      // console.log(
+      //   `Final predicted value: ${userItemMatrix[userIndex][itemIndex]}`
+      // );
+      // console.log();
 
       // Restore the test rating after prediction for the next iteration
       ratingsMatrix[userIndex][itemIndex] = testRating;
@@ -285,8 +303,7 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
 
 //final outputs
 const meanAbsoluteError = totalAbsoluteError / totalPredictions;
-console.log(
-  `User-Based, Pearson Correlation Coefficient, File ${filename}`);
+console.log(`User-Based, Pearson Correlation Coefficient, File ${filename}`);
 console.log(`Total predictions: ${totalPredictions}`);
 console.log(`Total under predictions (<1): ${totalUnderPredictions}`);
 console.log(`Total over predictions (>5): ${totalOverPredictions}`);

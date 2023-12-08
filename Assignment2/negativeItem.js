@@ -1,7 +1,7 @@
 console.time("wholeCode");
 const fs = require("fs");
 
-const filename = "./testFiles/parsed-data-trimmed.txt";
+const filename = "./testFiles/assignment2-data.txt";
 const data = fs.readFileSync(filename, "utf8").split("\n");
 const [numUsers, numItems] = data[0].split(" ").map(Number);
 const users = data[1].split(" ");
@@ -13,7 +13,8 @@ const userRatings = data
   .slice(3, 3 + numUsers)
   .map((row) => row.split(" ").map(Number));
 
-const defaultNeighborhoodSize = 5;
+const defaultNeighborhoodSize = 15;
+const itemThreshold = 50;
 
 const userItemMatrix = userRatings.map((row) => [...row]);
 const ratingsMatrix = userRatings.map((row) => [...row]);
@@ -22,7 +23,13 @@ const similarityCache = new Map();
 const userMeanRatingCache = new Map();
 
 function findCommonRatings(item1, item2) {
-  const commonRatings = new Set(item1.map((rating, index) => (rating !== 0 && item2[index] !== 0) ? index : undefined).filter(index => index !== undefined));
+  const commonRatings = new Set(
+    item1
+      .map((rating, index) =>
+        rating !== 0 && item2[index] !== 0 ? index : undefined
+      )
+      .filter((index) => index !== undefined)
+  );
   return commonRatings;
 }
 
@@ -32,12 +39,13 @@ function getUserMeanRating(userIndex, ratingsMatrix) {
   }
 
   const userRatings = ratingsMatrix[userIndex].filter((rating) => rating !== 0);
-  const meanRating = userRatings.reduce((sum, rating) => sum + rating, 0) / userRatings.length || 0;
+  const meanRating =
+    userRatings.reduce((sum, rating) => sum + rating, 0) / userRatings.length ||
+    0;
 
   userMeanRatingCache.set(userIndex, meanRating);
   return meanRating;
 }
-
 
 function adjustedCosineSimilarity(item1, item2, ratings, commonRatings) {
   const key = `${item1.join(",")}_${item2.join(",")}`;
@@ -72,7 +80,7 @@ function adjustedCosineSimilarity(item1, item2, ratings, commonRatings) {
 
   const similarity =
     numerator / (Math.sqrt(denominator1) * Math.sqrt(denominator2));
-  if (!isNaN(similarity) && similarity > 0) {
+  if (!isNaN(similarity)) {
     // Cache the calculated similarity
     similarityCache.set(key, similarity);
 
@@ -110,7 +118,9 @@ class MaxHeap {
     while (currentIndex > 0) {
       const parentIndex = Math.floor((currentIndex - 1) / 2);
 
-      if (this.heap[parentIndex].similarity >= this.heap[currentIndex].similarity) {
+      if (
+        this.heap[parentIndex].similarity >= this.heap[currentIndex].similarity
+      ) {
         break;
       }
 
@@ -127,11 +137,17 @@ class MaxHeap {
       const rightChildIndex = 2 * currentIndex + 2;
       let nextIndex = currentIndex;
 
-      if (this.isValidIndex(leftChildIndex) && this.heap[leftChildIndex].similarity > this.heap[nextIndex].similarity) {
+      if (
+        this.isValidIndex(leftChildIndex) &&
+        this.heap[leftChildIndex].similarity > this.heap[nextIndex].similarity
+      ) {
         nextIndex = leftChildIndex;
       }
 
-      if (this.isValidIndex(rightChildIndex) && this.heap[rightChildIndex].similarity > this.heap[nextIndex].similarity) {
+      if (
+        this.isValidIndex(rightChildIndex) &&
+        this.heap[rightChildIndex].similarity > this.heap[nextIndex].similarity
+      ) {
         nextIndex = rightChildIndex;
       }
 
@@ -145,7 +161,10 @@ class MaxHeap {
   }
 
   swap(index1, index2) {
-    [this.heap[index1], this.heap[index2]] = [this.heap[index2], this.heap[index1]];
+    [this.heap[index1], this.heap[index2]] = [
+      this.heap[index2],
+      this.heap[index1],
+    ];
   }
 
   isValidIndex(index) {
@@ -168,7 +187,6 @@ function findKNeighbors(
     otherItemIndex < ratingsMatrix[0].length;
     otherItemIndex++
   ) {
-    
     const neighborRating = ratingsMatrix[userIndex][otherItemIndex];
 
     if (neighborRating === 0 || neighborRating < 0 || neighborRating > 5) {
@@ -179,21 +197,17 @@ function findKNeighbors(
       continue; // Skip the same item
     }
 
-    const userRating = ratingsMatrix[userIndex][itemIndex];
-
-    if (userRating < 0 || userRating > 5) {
-      continue; // Skip items with no ratings during prediction
-    }
-
-    
-
     const otherItem = ratingsMatrix.map((row) => row[otherItemIndex]);
 
     const commonRatings = findCommonRatings(item, otherItem);
 
-    if (commonRatings.size === 0){
+    if (commonRatings.size === 0) {
       continue;
     }
+
+    // if (commonRatings.size < itemThreshold) {
+    //   continue; // Skip items that don't meet the threshold
+    // }
 
     const similarity = adjustedCosineSimilarity(
       item,
@@ -203,7 +217,7 @@ function findKNeighbors(
     );
 
     // Check if the similarity is 1
-    if (similarity === 1) {
+    if (Math.abs(similarity) === 1) {
       similarityOneCount++;
 
       if (similarityOneCount === neighborhoodSize) {
@@ -211,8 +225,8 @@ function findKNeighbors(
       }
     }
 
-    
-    if (similarity > 0 && similarity <=1) {
+    //no negative similarities
+    if (Math.abs(similarity) > 0) {
       itemSimilarities.insert({ index: otherItemIndex, similarity });
     } else {
       continue;
@@ -221,7 +235,11 @@ function findKNeighbors(
 
   // Extract top-k similarities from the max heap
   const topSimilarities = [];
-  for (let i = 0; i < neighborhoodSize && itemSimilarities.heap.length > 0; i++) {
+  for (
+    let i = 0;
+    i < neighborhoodSize && itemSimilarities.heap.length > 0;
+    i++
+  ) {
     topSimilarities.push(itemSimilarities.extractMax());
   }
 
@@ -235,26 +253,15 @@ let totalNoValidNeighbors = 0;
 let totalUnderPredictions = 0;
 let totalOverPredictions = 0;
 
-
 for (let userIndex = 0; userIndex < numUsers; userIndex++) {
-  
-  
   for (let itemIndex = 0; itemIndex < numItems; itemIndex++) {
-    
     const testRating = ratingsMatrix[userIndex][itemIndex];
-    
 
-    if (
-      testRating <= 0 ||
-      testRating > 5 ||
-      isNaN(testRating)
-    ) {
-      
+    if (testRating <= 0 || testRating > 5 || isNaN(testRating)) {
       continue;
     }
 
     if (testRating !== 0) {
-      
       totalPredictions++;
 
       // Temporarily remove the test rating for LOOCV
@@ -272,9 +279,9 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
       );
 
       // Output information about the prediction
-      console.log(`Predicting for user: ${users[userIndex]}`);
-      console.log(`Predicting for item: ${items[itemIndex]}`);
-      console.log(`Found ${kNeighbors.length} valid neighbors:`);
+      // console.log(`Predicting for user: ${users[userIndex]}`);
+      // console.log(`Predicting for item: ${items[itemIndex]}`);
+      // console.log(`Found ${kNeighbors.length} valid neighbors:`);
 
       if (kNeighbors.length === 0) {
         totalNoValidNeighbors++;
@@ -290,10 +297,10 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
           const neighborIndex = neighbor.index;
           const similarity = neighbor.similarity;
           const neighborRating = ratingsMatrix[userIndex][neighborIndex];
-          console.log(`${items[neighborIndex]} sim=${similarity}`);
-          // Skip items with no ratings during prediction
+
+          // Include both positive and negative similarities in the prediction
           prediction += similarity * neighborRating;
-          totalSimilarity += similarity;
+          totalSimilarity += Math.abs(similarity); // Use absolute similarity for weighting
         }
 
         prediction /= totalSimilarity;
@@ -302,9 +309,9 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
         totalNeighborsUsed += kNeighbors.length;
       }
 
-      console.log(
-        `Initial predicted value: ${userItemMatrix[userIndex][itemIndex]}`
-      );
+      // console.log(
+      //   `Initial predicted value: ${userItemMatrix[userIndex][itemIndex]}`
+      // );
       // Handle extreme cases for the fallback prediction
       if (userItemMatrix[userIndex][itemIndex] < 1) {
         totalUnderPredictions++;
@@ -320,23 +327,20 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
       );
       totalAbsoluteError += absoluteError;
 
-      console.log(
-        `Final predicted value: ${userItemMatrix[userIndex][itemIndex]}`
-      );
-      console.log();
+      // console.log(
+      //   `Final predicted value: ${userItemMatrix[userIndex][itemIndex]}`
+      // );
+      // console.log();
 
       // Restore the test rating after prediction for the next iteration
       ratingsMatrix[userIndex][itemIndex] = testRating;
-      
     }
   }
-  
-  
 }
 
 const meanAbsoluteError = totalAbsoluteError / totalPredictions;
 console.log(
-  `Item-Based, top-K, Ignore Negatives, LOOCV MAE = ${meanAbsoluteError}`
+  `Item-Based, top-K, Negatives, LOOCV MAE = ${meanAbsoluteError}`
 );
 console.log(`Total predictions: ${totalPredictions}`);
 console.log(`Total under predictions (<1): ${totalUnderPredictions}`);
