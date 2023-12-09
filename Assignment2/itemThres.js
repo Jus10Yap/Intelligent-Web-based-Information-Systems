@@ -1,26 +1,30 @@
-console.time("wholeCode");
+console.time("wholeCode");//start timer 
 const fs = require("fs");
-
+//read and parse data
 const filename = "./testFiles/assignment2-data.txt";
 const data = fs.readFileSync(filename, "utf8").split("\n");
 const [numUsers, numItems] = data[0].split(" ").map(Number);
 
 console.log(`Filename: ${filename}`);
 
+// Extract user ratings data from the file
 const userRatings = data
   .slice(3, 3 + numUsers)
   .map((row) => row.split(" ").map(Number));
 
-
+//parameters that can be manipulated
 const similarityThreshold = 0.3;
 const itemThreshold = 5;
 
-const userItemMatrix = userRatings.map((row) => [...row]);
-const ratingsMatrix = userRatings.map((row) => [...row]);
+//matrix of ratings
+const userItemMatrix = userRatings.map((row) => [...row]);//manipulated for predictions
+const ratingsMatrix = userRatings.map((row) => [...row]);//referenced for predictions/calculations
 
+//caches to improve runtime
 const similarityCache = new Map();
 const userMeanRatingCache = new Map();
 
+//return the index of users that have a common rating for item1 and item2
 function findCommonRatings(item1, item2) {
   const commonRatings = new Set(
     item1.map((rating, index) =>
@@ -30,6 +34,7 @@ function findCommonRatings(item1, item2) {
   return commonRatings;
 }
 
+//return the mean of the user
 function getUserMeanRating(userIndex, ratingsMatrix) {
   if (userMeanRatingCache.has(userIndex)) {
     return userMeanRatingCache.get(userIndex);
@@ -45,9 +50,11 @@ function getUserMeanRating(userIndex, ratingsMatrix) {
   return meanRating;
 }
 
+//calculate the adjusted cosine similarity
 function adjustedCosineSimilarity(item1, item2, ratings, commonRatings) {
   const key = `${item1.join(",")}_${item2.join(",")}`;
 
+  //check if similarity is in the cache
   if (similarityCache.has(key)) {
     return similarityCache.get(key);
   }
@@ -88,6 +95,7 @@ function adjustedCosineSimilarity(item1, item2, ratings, commonRatings) {
   }
 }
 
+//return the neighbors of this item
 function findNeighborsAboveThreshold(
   item,
   ratingsMatrix,
@@ -121,9 +129,9 @@ function findNeighborsAboveThreshold(
       continue;
     }
 
-    if (commonRatings.size < itemThreshold) {
-      continue; // Skip items that don't meet the threshold
-    }
+    // if (commonRatings.size < itemThreshold) {
+    //   continue; // Skip items that don't meet the threshold
+    // }
 
     const similarity = adjustedCosineSimilarity(
       item,
@@ -151,7 +159,7 @@ let totalOverPredictions = 0;
 for (let userIndex = 0; userIndex < numUsers; userIndex++) {
   for (let itemIndex = 0; itemIndex < numItems; itemIndex++) {
     const testRating = ratingsMatrix[userIndex][itemIndex];
-
+    //skip invalid ratings 
     if (
       testRating <= 0 ||
       testRating > 5 ||
@@ -235,6 +243,7 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
   }
 }
 
+//output
 const meanAbsoluteError = totalAbsoluteError / totalPredictions;
 console.log(
   `Item-Based, Threshold-based, Ignore Negatives, LOOCV MAE = ${meanAbsoluteError}`
@@ -247,4 +256,4 @@ console.log(
 );
 console.log(`Average neighbors used: ${totalNeighborsUsed / totalPredictions}`);
 
-console.timeEnd("wholeCode");
+console.timeEnd("wholeCode");//end timer

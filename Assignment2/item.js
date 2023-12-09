@@ -1,33 +1,36 @@
-console.time("wholeCode");
+console.time("wholeCode");//start timer 
 const fs = require("fs");
-
+//read and parse data
 const filename = "./testFiles/assignment2-data.txt";
 const data = fs.readFileSync(filename, "utf8").split("\n");
 const [numUsers, numItems] = data[0].split(" ").map(Number);
-const users = data[1].split(" ");
-const items = data[2].split(" ");
 
 console.log(`Filename: ${filename}`);
 
+// Extract user ratings data from the file
 const userRatings = data
   .slice(3, 3 + numUsers)
   .map((row) => row.split(" ").map(Number));
 
+//parameters that can be manipulated
 const defaultNeighborhoodSize = 10;
 const itemThreshold = 25;
 
+//matrix of ratings
+const userItemMatrix = userRatings.map((row) => [...row]);//manipulated for predictions
+const ratingsMatrix = userRatings.map((row) => [...row]);//referenced for predictions/calculations
 
-const userItemMatrix = userRatings.map((row) => [...row]);
-const ratingsMatrix = userRatings.map((row) => [...row]);
-
+//caches to improve runtime
 const similarityCache = new Map();
 const userMeanRatingCache = new Map();
 
+//return the index of users that have a common rating for item1 and item2
 function findCommonRatings(item1, item2) {
   const commonRatings = new Set(item1.map((rating, index) => (rating !== 0 && item2[index] !== 0) ? index : undefined).filter(index => index !== undefined));
   return commonRatings;
 }
 
+//return the mean of the user
 function getUserMeanRating(userIndex, ratingsMatrix) {
   if (userMeanRatingCache.has(userIndex)) {
     return userMeanRatingCache.get(userIndex);
@@ -40,10 +43,11 @@ function getUserMeanRating(userIndex, ratingsMatrix) {
   return meanRating;
 }
 
-
+//calculate the adjusted cosine similarity
 function adjustedCosineSimilarity(item1, item2, ratings, commonRatings) {
   const key = `${item1.join(",")}_${item2.join(",")}`;
 
+  //check if similarity is in the cache
   if (similarityCache.has(key)) {
     return similarityCache.get(key);
   }
@@ -56,6 +60,7 @@ function adjustedCosineSimilarity(item1, item2, ratings, commonRatings) {
   let denominator1 = 0;
   let denominator2 = 0;
 
+  //go over the indexes of common ratings
   for (const index of commonRatings) {
     const nonNegativeRatings = ratings[index].filter((rating) => rating !== 0);
     const nonNegativeCount = nonNegativeRatings.length;
@@ -85,6 +90,7 @@ function adjustedCosineSimilarity(item1, item2, ratings, commonRatings) {
   }
 }
 
+//HEAP IMPLEMENTATION FROM 2402 but in js
 class MaxHeap {
   constructor() {
     this.heap = [];
@@ -156,6 +162,7 @@ class MaxHeap {
   }
 }
 
+//return the neighbors of this item
 function findKNeighbors(
   item,
   ratingsMatrix,
@@ -175,11 +182,11 @@ function findKNeighbors(
     const neighborRating = ratingsMatrix[userIndex][otherItemIndex];
 
     if (neighborRating === 0 || neighborRating < 0 || neighborRating > 5) {
-      continue; // Skip items with no ratings during prediction
+      continue; // skip items with no ratings during prediction
     }
 
     if (otherItemIndex === itemIndex) {
-      continue; // Skip the same item
+      continue; // skip the same item
     }
 
     
@@ -189,12 +196,12 @@ function findKNeighbors(
     const commonRatings = findCommonRatings(item, otherItem);
 
     if (commonRatings.size === 0){
-      continue;
+      continue; //no common ratings
     }
 
-    if (commonRatings.size < itemThreshold) {
-      continue; // Skip items that don't meet the threshold
-    }
+    // if (commonRatings.size < itemThreshold) {
+    //   continue; // skip items that don't meet the threshold
+    // }
 
     const similarity = adjustedCosineSimilarity(
       item,
@@ -204,12 +211,12 @@ function findKNeighbors(
     );
 
 
-    // Check if the similarity is 1
+    // check if the similarity is 1
     if (similarity === 1) {
       similarityOneCount++;
 
       if (similarityOneCount === neighborhoodSize) {
-        break; // Exit the loop if 5 neighbors with similarity 1 are found
+        break; // exit the loop if X neighbors with similarity 1 are found
       }
     }
 
@@ -221,7 +228,7 @@ function findKNeighbors(
     }
   }
 
-  // Extract top-k similarities from the max heap
+  // extract top-k similarities from the max heap
   const topSimilarities = [];
   for (let i = 0; i < neighborhoodSize && itemSimilarities.heap.length > 0; i++) {
     topSimilarities.push(itemSimilarities.extractMax());
@@ -240,12 +247,11 @@ let totalOverPredictions = 0;
 
 for (let userIndex = 0; userIndex < numUsers; userIndex++) {
   
-  
   for (let itemIndex = 0; itemIndex < numItems; itemIndex++) {
     
     const testRating = ratingsMatrix[userIndex][itemIndex];
-    
 
+    //skip invalid ratings 
     if (
       testRating <= 0 ||
       testRating > 5 ||
@@ -336,6 +342,7 @@ for (let userIndex = 0; userIndex < numUsers; userIndex++) {
   
 }
 
+//output
 const meanAbsoluteError = totalAbsoluteError / totalPredictions;
 console.log(
   `Item-Based, top-K, Ignore Negatives, LOOCV MAE = ${meanAbsoluteError}`
@@ -348,4 +355,4 @@ console.log(
 );
 console.log(`Average neighbors used: ${totalNeighborsUsed / totalPredictions}`);
 
-console.timeEnd("wholeCode");
+console.timeEnd("wholeCode");//end timer

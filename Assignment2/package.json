@@ -2,7 +2,7 @@
   "name": "assignment2",
   "version": "1.0.0",
   "description": "COMP4601A Fall 2023 Assignment 2 Submission",
-  "main": "item.js",
+  "main": "user.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "item": "node item.js",

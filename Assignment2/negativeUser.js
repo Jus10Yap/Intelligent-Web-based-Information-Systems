@@ -8,9 +8,10 @@ const [numUsers, numItems] = data[0].split(" ").map(Number);
 const users = data[1].split(" ");
 const items = data[2].split(" ");
 
+// Extract user ratings data from the file
 const userRatings = data
-  .slice(3, 3 + numUsers)
-  .map((row) => row.split(" ").map(Number));
+.slice(3, 3 + numUsers)
+.map((row) => row.split(" ").map(Number));
 
 const defaultNeighborhoodSize = 10;
 const userThreshold = 5;

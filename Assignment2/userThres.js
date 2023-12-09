@@ -74,12 +74,12 @@ function findNeighborsAboveThreshold(
     otherUserIndex < numUsers;
     otherUserIndex++
   ) {
-    if (
-      ratingsMatrix[otherUserIndex].filter((rating) => rating !== 0).length <
-      userThreshold
-    ) {
-      continue;
-    }
+    // if (
+    //   ratingsMatrix[otherUserIndex].filter((rating) => rating !== 0).length <
+    //   userThreshold
+    // ) {
+    //   continue;
+    // }
     const neighborRating = ratingsMatrix[otherUserIndex][itemIndex];
 
     if (
